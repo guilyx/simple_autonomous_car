@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install dependencies
+        run: |
+          source $HOME/.cargo/env
+          uv sync --dev
+      - name: Run black
+        run: |
+          source $HOME/.cargo/env
+          uv run black --check src tests
+      - name: Run ruff
+        run: |
+          source $HOME/.cargo/env
+          uv run ruff check src tests
+      - name: Run mypy
+        run: |
+          source $HOME/.cargo/env
+          uv run mypy src
+
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+        if: runner.os != 'Windows'
+      - name: Install uv (Windows)
+        run: powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+        if: runner.os == 'Windows'
+      - name: Install dependencies
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            $env:PATH += ";$env:USERPROFILE\.cargo\bin"
+            uv sync --dev
+          else
+            source $HOME/.cargo/env
+            uv sync --dev
+          fi
+      - name: Run tests
+        run: |
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            $env:PATH += ";$env:USERPROFILE\.cargo\bin"
+            uv run pytest --cov=src --cov-report=xml
+          else
+            source $HOME/.cargo/env
+            uv run pytest --cov=src --cov-report=xml
+          fi
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+      - name: Install build dependencies
+        run: |
+          source $HOME/.cargo/env
+          uv sync --dev
+      - name: Build package
+        run: |
+          source $HOME/.cargo/env
+          uv build
+      - name: Check artifacts
+        run: |
+          ls -la dist/

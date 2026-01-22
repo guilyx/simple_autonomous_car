@@ -1,0 +1,266 @@
+"""Grid-based map with obstacles for goal-based navigation."""
+
+import numpy as np
+from typing import Tuple, Optional, TYPE_CHECKING
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+
+if TYPE_CHECKING:
+    from simple_autonomous_car.car.car import CarState
+
+
+class GridMap:
+    """
+    Represents a grid-based map with obstacles for goal-based navigation.
+    
+    This is similar to Track but for grid-based environments with obstacles.
+    It provides a compatible interface for visualization and planning.
+    
+    Parameters
+    ----------
+    width : float
+        Width of the map in meters.
+    height : float
+        Height of the map in meters.
+    resolution : float, default=0.5
+        Resolution in meters per cell.
+    obstacles : np.ndarray, optional
+        Array of obstacle positions [[x1, y1], [x2, y2], ...] or None.
+    obstacle_size : float, default=1.0
+        Size of each obstacle (radius or half-width).
+    """
+    
+    def __init__(
+        self,
+        width: float,
+        height: float,
+        resolution: float = 0.5,
+        obstacles: Optional[np.ndarray] = None,
+        obstacle_size: float = 1.0,
+    ):
+        self.width = width
+        self.height = height
+        self.resolution = resolution
+        self.obstacle_size = obstacle_size
+        
+        # Store obstacles
+        if obstacles is None:
+            self.obstacles = np.array([]).reshape(0, 2)
+        else:
+            self.obstacles = np.asarray(obstacles, dtype=np.float64)
+            if self.obstacles.ndim != 2 or self.obstacles.shape[1] != 2:
+                raise ValueError("obstacles must be shape (N, 2)")
+        
+        # Create grid representation for fast collision checking
+        self._create_grid()
+    
+    def _create_grid(self) -> None:
+        """Create internal grid representation of obstacles."""
+        self.width_cells = int(self.width / self.resolution)
+        self.height_cells = int(self.height / self.resolution)
+        self.grid = np.zeros((self.height_cells, self.width_cells), dtype=bool)
+        
+        # Mark obstacles in grid
+        for obstacle in self.obstacles:
+            x, y = obstacle
+            # Convert to grid coordinates
+            grid_x = int((x + self.width / 2) / self.resolution)
+            grid_y = int((y + self.height / 2) / self.resolution)
+            
+            # Mark cells within obstacle_size
+            radius_cells = int(self.obstacle_size / self.resolution)
+            for dy in range(-radius_cells, radius_cells + 1):
+                for dx in range(-radius_cells, radius_cells + 1):
+                    gx = grid_x + dx
+                    gy = grid_y + dy
+                    if 0 <= gx < self.width_cells and 0 <= gy < self.height_cells:
+                        dist = np.sqrt(dx**2 + dy**2) * self.resolution
+                        if dist <= self.obstacle_size:
+                            self.grid[gy, gx] = True
+    
+    def is_obstacle(self, position: np.ndarray) -> bool:
+        """
+        Check if a position is occupied by an obstacle.
+        
+        Parameters
+        ----------
+        position : np.ndarray
+            Position [x, y] in world coordinates.
+            
+        Returns
+        -------
+        bool
+            True if position is occupied, False otherwise.
+        """
+        # Convert to grid coordinates
+        grid_x = int((position[0] + self.width / 2) / self.resolution)
+        grid_y = int((position[1] + self.height / 2) / self.resolution)
+        
+        if 0 <= grid_x < self.width_cells and 0 <= grid_y < self.height_cells:
+            return self.grid[grid_y, grid_x]
+        return True  # Out of bounds is considered obstacle
+    
+    def is_valid_position(self, position: np.ndarray) -> bool:
+        """
+        Check if a position is valid (within bounds and not obstacle).
+        
+        Parameters
+        ----------
+        position : np.ndarray
+            Position [x, y] in world coordinates.
+            
+        Returns
+        -------
+        bool
+            True if position is valid, False otherwise.
+        """
+        x, y = position
+        # Check bounds
+        if x < -self.width/2 or x > self.width/2:
+            return False
+        if y < -self.height/2 or y > self.height/2:
+            return False
+        
+        # Check obstacles
+        return not self.is_obstacle(position)
+    
+    def get_bounds(self) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Get map boundaries (for compatibility with Track interface).
+        
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray]
+            (inner_bound, outer_bound) - both are the same for grid maps.
+        """
+        bounds = np.array([
+            [-self.width/2, -self.height/2],
+            [self.width/2, -self.height/2],
+            [self.width/2, self.height/2],
+            [-self.width/2, self.height/2],
+            [-self.width/2, -self.height/2],  # Close the loop
+        ])
+        return bounds, bounds.copy()
+    
+    @classmethod
+    def create_random_map(
+        cls,
+        width: float = 50.0,
+        height: float = 50.0,
+        resolution: float = 0.5,
+        num_obstacles: int = 10,
+        obstacle_size: float = 2.0,
+        seed: Optional[int] = None,
+    ) -> "GridMap":
+        """
+        Create a random grid map with obstacles.
+        
+        Parameters
+        ----------
+        width : float, default=50.0
+            Width of map in meters.
+        height : float, default=50.0
+            Height of map in meters.
+        resolution : float, default=0.5
+            Resolution in meters per cell.
+        num_obstacles : int, default=10
+            Number of obstacles to place.
+        obstacle_size : float, default=2.0
+            Size of each obstacle.
+        seed : int, optional
+            Random seed for reproducibility.
+            
+        Returns
+        -------
+        GridMap
+            Random grid map instance.
+        """
+        if seed is not None:
+            np.random.seed(seed)
+        
+        # Generate random obstacle positions
+        obstacles = []
+        margin = obstacle_size + 2.0  # Keep obstacles away from edges
+        
+        for _ in range(num_obstacles):
+            x = np.random.uniform(-width/2 + margin, width/2 - margin)
+            y = np.random.uniform(-height/2 + margin, height/2 - margin)
+            obstacles.append([x, y])
+        
+        return cls(
+            width=width,
+            height=height,
+            resolution=resolution,
+            obstacles=np.array(obstacles),
+            obstacle_size=obstacle_size,
+        )
+    
+    def visualize(
+        self,
+        ax,
+        car_state: Optional["CarState"] = None,
+        frame: str = "global",
+        goal: Optional[np.ndarray] = None,
+        **kwargs
+    ) -> None:
+        """
+        Visualize the grid map.
+        
+        Parameters
+        ----------
+        ax : matplotlib.axes.Axes
+            Axes to plot on.
+        car_state : CarState, optional
+            Current car state (for frame transformation).
+        frame : str, default="global"
+            Frame to plot in: "global" or "ego".
+        goal : np.ndarray, optional
+            Goal position [x, y] to display.
+        **kwargs
+            Additional visualization arguments.
+        """
+        # Extract visualization parameters
+        alpha = kwargs.pop("alpha", 0.3)
+        obstacle_color = kwargs.pop("obstacle_color", "red")
+        goal_color = kwargs.pop("goal_color", "green")
+        goal_size = kwargs.pop("goal_size", 1.0)
+        
+        # Draw map boundaries
+        bounds, _ = self.get_bounds()
+        ax.plot(bounds[:, 0], bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
+        
+        # Draw obstacles
+        for obstacle in self.obstacles:
+            if frame == "ego" and car_state is not None:
+                # Transform to ego frame
+                obstacle_ego = car_state.transform_to_car_frame(obstacle)
+                circle = patches.Circle(
+                    obstacle_ego,
+                    self.obstacle_size,
+                    color=obstacle_color,
+                    alpha=alpha,
+                    **kwargs
+                )
+            else:
+                circle = patches.Circle(
+                    obstacle,
+                    self.obstacle_size,
+                    color=obstacle_color,
+                    alpha=alpha,
+                    **kwargs
+                )
+            ax.add_patch(circle)
+        
+        # Draw goal if provided
+        if goal is not None:
+            if frame == "ego" and car_state is not None:
+                goal_plot = car_state.transform_to_car_frame(goal)
+            else:
+                goal_plot = goal
+            
+            ax.plot(goal_plot[0], goal_plot[1], 'o', color=goal_color, 
+                   markersize=goal_size * 10, label="Goal", markeredgecolor='black', 
+                   markeredgewidth=2, **kwargs)
+        
+        ax.set_aspect("equal")
+        ax.grid(True, alpha=0.3)
