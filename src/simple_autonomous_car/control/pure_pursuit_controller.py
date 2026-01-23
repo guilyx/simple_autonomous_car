@@ -16,6 +16,7 @@ from simple_autonomous_car.constants import (
     DEFAULT_TARGET_VELOCITY,
     DEFAULT_VELOCITY_GAIN,
     DEFAULT_DT,
+    DEFAULT_GOAL_TOLERANCE,
     DEFAULT_ARC_LOOKAHEAD_DISTANCE,
     DEFAULT_MIN_TURNING_RADIUS,
     DEFAULT_MAX_TURNING_RADIUS,
@@ -80,6 +81,8 @@ class PurePursuitController(BaseController):
         perception_data: Optional[Dict[str, PerceptionPoints]] = None,
         costmap: Optional["BaseCostmap"] = None,
         plan: Optional[np.ndarray] = None,
+        goal: Optional[np.ndarray] = None,
+        goal_tolerance: Optional[float] = None,
         dt: float = 0.1,
     ) -> Dict[str, float]:
         """
@@ -96,6 +99,11 @@ class PurePursuitController(BaseController):
         plan : np.ndarray, optional
             Planned path as array of shape (N, 2) with [x, y] waypoints.
             If None, returns zero control.
+        goal : np.ndarray, optional
+            Goal position [x, y] for goal-based velocity adaptation.
+        goal_tolerance : float, optional
+            Distance to goal to consider reached (default: DEFAULT_GOAL_TOLERANCE).
+            When within tolerance, target velocity is set to 0.
         dt : float, default=0.1
             Time step in seconds.
 
@@ -171,8 +179,30 @@ class PurePursuitController(BaseController):
             steering_rate = 2.0 * steering_error  # Reduced gain for smoother control
             steering_rate = np.clip(steering_rate, -self.max_steering_rate, self.max_steering_rate)
 
-        # Velocity control (adjust based on costmap if available)
+        # Velocity control (adjust based on costmap and goal distance)
         target_velocity = self.target_velocity
+
+        # Reduce velocity if approaching goal (smooth deceleration)
+        if goal is not None:
+            distance_to_goal = np.linalg.norm(car_state.position() - goal)
+            tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
+            
+            # If within tolerance, stop completely
+            if distance_to_goal < tolerance:
+                target_velocity = 0.0
+            else:
+                # Start slowing down when within 10 meters of goal
+                slow_down_distance = 10.0
+                if distance_to_goal < slow_down_distance:
+                    # Smooth velocity reduction: linear from full speed to zero
+                    # At distance=tolerance, velocity=0; at distance=slow_down_distance, velocity=target_velocity
+                    # Map distance from [tolerance, slow_down_distance] to velocity [0, target_velocity]
+                    if slow_down_distance > tolerance:
+                        velocity_factor = (distance_to_goal - tolerance) / (slow_down_distance - tolerance)
+                        velocity_factor = max(0.0, min(1.0, velocity_factor))  # Clamp to [0, 1]
+                        target_velocity = self.target_velocity * velocity_factor
+                    else:
+                        target_velocity = 0.0
 
         # Reduce velocity if high cost ahead
         if costmap is not None and costmap.is_enabled():
@@ -184,7 +214,7 @@ class PurePursuitController(BaseController):
             cost_ahead = costmap.get_cost(lookahead_pos, frame="global", car_state=car_state)
             # Reduce velocity if cost > threshold
             if cost_ahead > COST_THRESHOLD:
-                target_velocity = self.target_velocity * (1.0 - cost_ahead * 0.5)
+                target_velocity = target_velocity * (1.0 - cost_ahead * 0.5)
 
         velocity_error = target_velocity - car_state.velocity
         acceleration = self.velocity_gain * velocity_error

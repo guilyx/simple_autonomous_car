@@ -92,13 +92,15 @@ def run_simulation(config: dict) -> None:
             max_steering_angle=car_config["max_steering_angle"],
         )
         
-        # For grid maps, we need a simple ground truth representation
-        # Create a minimal ground truth map (just for sensor simulation)
-        class SimpleGroundTruth:
-            def __init__(self, grid_map):
-                self.grid_map = grid_map
-        ground_truth_map = SimpleGroundTruth(grid_map)
-        perceived_map = None  # Simplified for grid maps
+        # For grid maps, create ground truth and perceived maps
+        from simple_autonomous_car.maps.grid_ground_truth_map import GridGroundTruthMap
+        ground_truth_map = GridGroundTruthMap(grid_map)
+        perceived_map = PerceivedMap(
+            ground_truth_map,
+            position_noise_std=config["perception"]["position_noise_std"],
+            orientation_noise_std=config["perception"]["orientation_noise_std"],
+            measurement_noise_std=config["perception"]["measurement_noise_std"],
+        )
         
     else:
         # Track environment (existing code)
@@ -152,18 +154,16 @@ def run_simulation(config: dict) -> None:
             measurement_noise_std=config["perception"]["measurement_noise_std"],
         )
 
-    # Create sensors (only for track environments for now)
-    lidar = None
-    if not is_grid_map:
-        lidar = LiDARSensor(
-            ground_truth_map=ground_truth_map,
-            perceived_map=perceived_map,
-            max_range=config["sensor"]["max_range"],
-            angular_resolution=config["sensor"]["angular_resolution"],
-            point_noise_std=config["sensor"]["point_noise_std"],
-            name="lidar",
-        )
-        car.add_sensor(lidar)
+    # Create sensors (works for both track and grid map environments)
+    lidar = LiDARSensor(
+        ground_truth_map=ground_truth_map,
+        perceived_map=perceived_map,
+        max_range=config["sensor"]["max_range"],
+        angular_resolution=config["sensor"]["angular_resolution"],
+        point_noise_std=config["sensor"]["point_noise_std"],
+        name="lidar",
+    )
+    car.add_sensor(lidar)
 
     # Create planner
     if is_grid_map:
@@ -238,60 +238,93 @@ def run_simulation(config: dict) -> None:
 
 def _run_simulation_loop(
     car, track, grid_map, goal, ground_truth_map, lidar, planner, controller, costmap,
-    alert_system, dt, num_steps, horizon, view_bounds, axes, cache, is_grid_map,
+    alert_system, dt, num_steps, horizon, view_bounds, axes, cache, is_grid_map, goal_tolerance=None,
 ) -> None:
     """Run the simulation loop with enhanced visualization."""
     control_history = []
     goal_reached = False
 
     for step in range(num_steps):
-        # 1. Get perception from sensors (only for track environments)
-        if is_grid_map:
-            perception_data = {}  # Simplified for grid maps
+        # Check if goal reached (for grid maps) - check FIRST before any planning/control
+        # Only check if car is very close and nearly stopped (controller should handle smooth stopping)
+        if is_grid_map and goal is not None and not goal_reached:
+            distance_to_goal = np.linalg.norm(car.state.position() - goal)
+            if goal_tolerance is None:
+                goal_tolerance = 1.0  # Reduced tolerance - controller handles most stopping
+            # Only mark as reached if very close AND nearly stopped (controller did its job)
+            if distance_to_goal < goal_tolerance and abs(car.state.velocity) < 0.5:
+                print(f"Step {step:3d}: Goal reached! Distance: {distance_to_goal:.2f}m, Velocity: {car.state.velocity:.2f}m/s")
+                goal_reached = True
+        
+        # If goal reached, stop the car and skip planning/control
+        if goal_reached:
+            # Stop the car (brake to zero velocity, no steering)
+            # Use smooth braking to avoid sudden stops
+            if car.state.velocity > 0.1:
+                # Brake smoothly
+                control = {
+                    "acceleration": max(-car.state.velocity / dt, -5.0),  # Brake (cap at -5 m/s²)
+                    "steering_rate": 0.0,
+                }
+            else:
+                # Already stopped or nearly stopped - maintain zero velocity
+                control = {
+                    "acceleration": -car.state.velocity / dt,  # Maintain zero
+                    "steering_rate": 0.0,
+                }
+            
+            # Store control history
+            control["time"] = step * dt
+            control["velocity"] = car.state.velocity
+            control_history.append(control.copy())
+            
+            # Update car to stop
+            car.update(dt, acceleration=control["acceleration"], steering_rate=0.0)
+            
+            # No plan needed when stopped
+            plan = np.array([]).reshape(0, 2)
+            perception_points = None
         else:
+            # Normal operation - plan and control
+            # 1. Get perception from sensors (works for both environments now)
             perception_data = car.sense_all(environment_data={"ground_truth_map": ground_truth_map})
 
-        # 2. Update costmap from perception data (if available)
-        if perception_data:
-            costmap.update(perception_data, car.state)
+            # 2. Update costmap from perception data (if available)
+            if perception_data:
+                costmap.update(perception_data, car.state)
 
-        # 3. Generate plan
-        if is_grid_map:
-            plan = planner.plan(car.state, goal=goal)
-        else:
-            plan = planner.plan(car.state, perception_data=perception_data, costmap=costmap)
+            # 3. Generate plan (use costmap for obstacle avoidance)
+            if is_grid_map:
+                plan = planner.plan(car.state, perception_data=perception_data, costmap=costmap, goal=goal)
+            else:
+                plan = planner.plan(car.state, perception_data=perception_data, costmap=costmap)
 
-        # 4. Compute control
-        control = controller.compute_control(
-            car_state=car.state,
-            perception_data=perception_data if not is_grid_map else None,
-            costmap=costmap,
-            plan=plan,
-            dt=dt,
-        )
+            # 4. Compute control (pass goal and tolerance for velocity adaptation)
+            control = controller.compute_control(
+                car_state=car.state,
+                perception_data=perception_data,
+                costmap=costmap,
+                plan=plan,
+                goal=goal if is_grid_map else None,
+                goal_tolerance=goal_tolerance if is_grid_map else None,
+                dt=dt,
+            )
 
-        # Store control history
-        control["time"] = step * dt
-        control["velocity"] = car.state.velocity
-        control_history.append(control.copy())
+            # Store control history
+            control["time"] = step * dt
+            control["velocity"] = car.state.velocity
+            control_history.append(control.copy())
 
-        # 5. Update car with control commands
-        car.update(
-            dt,
-            acceleration=control["acceleration"],
-            steering_rate=control["steering_rate"],
-        )
+            # 5. Update car with control commands
+            car.update(
+                dt,
+                acceleration=control["acceleration"],
+                steering_rate=control["steering_rate"],
+            )
+            
+            # Get perception point cloud from LiDAR sensor
+            perception_points = perception_data.get("lidar") if not is_grid_map else None
 
-        # Check if goal reached (for grid maps)
-        if is_grid_map and goal is not None:
-            distance_to_goal = np.linalg.norm(car.state.position() - goal)
-            if distance_to_goal < 2.0:  # Goal tolerance
-                if not goal_reached:
-                    print(f"Step {step:3d}: Goal reached! Distance: {distance_to_goal:.2f}m")
-                    goal_reached = True
-
-        # Get perception point cloud from LiDAR sensor
-        perception_points = perception_data.get("lidar") if not is_grid_map else None
 
         # 6. Check alerts (only for track environments)
         if not is_grid_map and alert_system is not None and perception_points is not None:
@@ -333,6 +366,11 @@ def _run_simulation_loop(
     if is_grid_map and goal is not None:
         final_distance = np.linalg.norm(car.state.position() - goal)
         print(f"Final distance to goal: {final_distance:.2f}m")
+        if goal_reached:
+            print(f"Goal successfully reached! Car stopped at step {step}.")
+        else:
+            print(f"Goal not reached within {num_steps} steps.")
+        print(f"Final velocity: {car.state.velocity:.2f} m/s")
     print("Simulation complete!")
     plt.show()
 

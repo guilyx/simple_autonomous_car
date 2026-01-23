@@ -48,7 +48,7 @@ CONFIG = {
         "width": 40.0,
         "height": 40.0,
         "resolution": 0.5,
-        "inflation_radius": 1.5,
+        "inflation_radius": 2.5,  # Increased for better obstacle avoidance
         "frame": "ego",
     },
     "simulation": {

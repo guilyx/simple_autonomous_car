@@ -26,6 +26,7 @@ from simple_autonomous_car.planning import BasePlanner, TrackPlanner, GoalPlanne
 from simple_autonomous_car.costmap import BaseCostmap, GridCostmap, inflate_obstacles
 from simple_autonomous_car.detection import LocalizationErrorDetector
 from simple_autonomous_car.alerts import TrackBoundsAlert
+from simple_autonomous_car.filters import BaseFilter, KalmanFilter, ParticleFilter
 from simple_autonomous_car.visualization import (
     AlertVisualizer,
     plot_perception,
@@ -79,6 +80,10 @@ __all__ = [
     "LocalizationErrorDetector",
     # Alerts
     "TrackBoundsAlert",
+    # Filters
+    "BaseFilter",
+    "KalmanFilter",
+    "ParticleFilter",
     # Visualization
     "AlertVisualizer",
     "plot_perception",

@@ -3,11 +3,14 @@
 import numpy as np
 import pytest
 
-from car_loc_viz.track.track import Track
-from car_loc_viz.maps.ground_truth_map import GroundTruthMap
-from car_loc_viz.maps.perceived_map import PerceivedMap
-from car_loc_viz.detection.error_detector import LocalizationErrorDetector
-from car_loc_viz.car.car import CarState
+import sys
+sys.path.insert(0, 'src')
+
+from simple_autonomous_car.track.track import Track
+from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
+from simple_autonomous_car.maps.perceived_map import PerceivedMap
+from simple_autonomous_car.detection.error_detector import LocalizationErrorDetector
+from simple_autonomous_car.car.car import CarState
 
 
 def test_error_detector_creation():

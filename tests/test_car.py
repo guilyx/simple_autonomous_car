@@ -3,7 +3,10 @@
 import numpy as np
 import pytest
 
-from car_loc_viz.car.car import Car, CarState
+import sys
+sys.path.insert(0, 'src')
+
+from simple_autonomous_car.car.car import Car, CarState
 
 
 def test_car_state_creation():

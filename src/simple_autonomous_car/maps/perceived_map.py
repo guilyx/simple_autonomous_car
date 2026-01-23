@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from simple_autonomous_car.car.car import CarState
 
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
+from simple_autonomous_car.maps.grid_ground_truth_map import GridGroundTruthMap
 
 
 class PerceivedMap:

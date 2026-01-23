@@ -201,6 +201,7 @@ class GridMap:
         car_state: Optional["CarState"] = None,
         frame: str = "global",
         goal: Optional[np.ndarray] = None,
+        horizon: Optional[float] = None,
         **kwargs
     ) -> None:
         """
@@ -216,6 +217,8 @@ class GridMap:
             Frame to plot in: "global" or "ego".
         goal : np.ndarray, optional
             Goal position [x, y] to display.
+        horizon : float, optional
+            Maximum distance to display (for ego frame filtering).
         **kwargs
             Additional visualization arguments.
         """
@@ -225,11 +228,23 @@ class GridMap:
         goal_color = kwargs.pop("goal_color", "green")
         goal_size = kwargs.pop("goal_size", 1.0)
         
-        # Draw map boundaries
-        bounds, _ = self.get_bounds()
-        ax.plot(bounds[:, 0], bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
+        # Get car position for filtering
+        car_pos = car_state.position() if car_state is not None else None
         
-        # Draw obstacles
+        # Draw map boundaries (only if within horizon in ego frame)
+        bounds, _ = self.get_bounds()
+        if frame == "ego" and horizon is not None and car_pos is not None:
+            # Filter boundaries by horizon
+            bounds_ego = np.array([car_state.transform_to_car_frame(b) for b in bounds])
+            distances = np.linalg.norm(bounds_ego, axis=1)
+            visible_mask = distances <= horizon
+            if np.any(visible_mask):
+                visible_bounds = bounds_ego[visible_mask]
+                ax.plot(visible_bounds[:, 0], visible_bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
+        else:
+            ax.plot(bounds[:, 0], bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
+        
+        # Draw obstacles (filter by horizon in ego frame)
         for obstacle in self.obstacles:
             if frame == "ego" and car_state is not None:
                 # Transform to ego frame
@@ -251,10 +266,15 @@ class GridMap:
                 )
             ax.add_patch(circle)
         
-        # Draw goal if provided
+        # Draw goal if provided (filter by horizon in ego frame)
         if goal is not None:
             if frame == "ego" and car_state is not None:
                 goal_plot = car_state.transform_to_car_frame(goal)
+                # Filter by horizon
+                if horizon is not None:
+                    distance = np.linalg.norm(goal_plot)
+                    if distance > horizon:
+                        return  # Goal outside horizon, don't draw
             else:
                 goal_plot = goal
             

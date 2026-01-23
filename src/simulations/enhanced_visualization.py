@@ -252,7 +252,7 @@ def update_ego_view(
 
     # 0. Plot environment in ego frame
     if is_grid_map and grid_map is not None:
-        grid_map.visualize(ax=ax, car_state=car.state, frame="ego", goal=goal)
+        grid_map.visualize(ax=ax, car_state=car.state, frame="ego", goal=goal, horizon=horizon)
     elif track is not None:
         track.visualize(
             ax=ax,

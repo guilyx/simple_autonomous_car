@@ -37,6 +37,7 @@ MIN_LOOKAHEAD_DISTANCE = 0.1  # meters
 MIN_STEERING_ANGLE_THRESHOLD = 0.0  # radians
 SMALL_STEERING_ANGLE_THRESHOLD = 1e-3  # radians
 ADAPTIVE_GAIN_DENOMINATOR = 10.0  # used in adaptive gain calculation
+DEFAULT_GOAL_TOLERANCE = 0.5  # meters - distance to goal to consider reached
 
 # ============================================================================
 # Planner Defaults

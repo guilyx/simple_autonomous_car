@@ -3,7 +3,10 @@
 import numpy as np
 import pytest
 
-from car_loc_viz.track.track import Track
+import sys
+sys.path.insert(0, 'src')
+
+from simple_autonomous_car.track.track import Track
 
 
 def test_track_creation():

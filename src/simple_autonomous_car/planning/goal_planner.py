@@ -8,6 +8,7 @@ from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.constants import (
     DEFAULT_PLAN_LINEWIDTH,
     MIN_SEGMENT_LENGTH,
+    COST_THRESHOLD,
 )
 
 if TYPE_CHECKING:
@@ -46,8 +47,9 @@ class GoalPlanner(BasePlanner):
         """Euclidean distance heuristic for A*."""
         return np.linalg.norm(pos1 - pos2)
     
-    def _get_neighbors(self, pos: np.ndarray, grid_map: "GridMap") -> List[np.ndarray]:
-        """Get valid neighboring positions."""
+    def _get_neighbors(self, pos: np.ndarray, grid_map: Optional["GridMap"] = None, 
+                      costmap: Optional["BaseCostmap"] = None, car_state: Optional[CarState] = None) -> List[np.ndarray]:
+        """Get valid neighboring positions, checking both grid_map and costmap."""
         neighbors = []
         directions = [
             [self.resolution, 0],
@@ -62,8 +64,18 @@ class GoalPlanner(BasePlanner):
         
         for dx, dy in directions:
             neighbor = pos + np.array([dx, dy])
-            if grid_map.is_valid_position(neighbor):
-                neighbors.append(neighbor)
+            
+            # Check validity using grid_map if available
+            if grid_map is not None:
+                if not grid_map.is_valid_position(neighbor):
+                    continue
+            elif costmap is not None and car_state is not None:
+                # Use costmap to check if position is valid
+                cost = costmap.get_cost(neighbor, frame="global", car_state=car_state)
+                if cost >= COST_THRESHOLD:  # Threshold for occupied
+                    continue
+            
+            neighbors.append(neighbor)
         
         return neighbors
     
@@ -112,21 +124,26 @@ class GoalPlanner(BasePlanner):
         if goal is None:
             return np.array([]).reshape(0, 2)
         
-        # Use grid_map if available, otherwise create from costmap
-        if self.grid_map is None:
-            if costmap is None or not hasattr(costmap, 'costmap'):
-                return np.array([]).reshape(0, 2)
-            # Create temporary grid map from costmap
-            # This is a simplified approach - in practice you'd want better integration
+        # Use grid_map if available, otherwise use costmap
+        use_costmap = (self.grid_map is None and costmap is not None and costmap.enabled)
+        
+        if not use_costmap and self.grid_map is None:
             return np.array([]).reshape(0, 2)
         
         start = car_state.position()
         
         # Check if start and goal are valid
-        if not self.grid_map.is_valid_position(start):
-            return np.array([]).reshape(0, 2)
-        if not self.grid_map.is_valid_position(goal):
-            return np.array([]).reshape(0, 2)
+        if self.grid_map is not None:
+            if not self.grid_map.is_valid_position(start):
+                return np.array([]).reshape(0, 2)
+            if not self.grid_map.is_valid_position(goal):
+                return np.array([]).reshape(0, 2)
+        if use_costmap:
+            # Check using costmap
+            start_cost = costmap.get_cost(start, frame="global", car_state=car_state)
+            goal_cost = costmap.get_cost(goal, frame="global", car_state=car_state)
+            if start_cost >= COST_THRESHOLD or goal_cost >= COST_THRESHOLD:
+                return np.array([]).reshape(0, 2)
         
         # A* algorithm
         open_set = [(0, tuple(start))]  # (f_score, position)
@@ -155,16 +172,24 @@ class GoalPlanner(BasePlanner):
                 path.reverse()
                 return np.array(path)
             
-            # Explore neighbors
-            neighbors = self._get_neighbors(current, self.grid_map)
+            # Explore neighbors (use costmap if grid_map not available)
+            neighbors = self._get_neighbors(current, self.grid_map, costmap, car_state)
             for neighbor in neighbors:
                 neighbor_tuple = tuple(neighbor)
                 
                 if neighbor_tuple in closed_set:
                     continue
                 
-                # Cost to reach neighbor (1 step)
-                tentative_g = g_score[tuple(current)] + np.linalg.norm(neighbor - current)
+                # Cost to reach neighbor (1 step + costmap cost if available)
+                base_cost = np.linalg.norm(neighbor - current)
+                if costmap is not None and costmap.enabled:
+                    # Add costmap cost as penalty
+                    neighbor_cost = costmap.get_cost(neighbor, frame="global", car_state=car_state)
+                    # Scale costmap cost (0.0-1.0) to add penalty
+                    cost_penalty = neighbor_cost * 5.0  # Scale factor for obstacle avoidance
+                    tentative_g = g_score[tuple(current)] + base_cost + cost_penalty
+                else:
+                    tentative_g = g_score[tuple(current)] + base_cost
                 
                 if neighbor_tuple not in g_score or tentative_g < g_score[neighbor_tuple]:
                     came_from[neighbor_tuple] = current.copy()
@@ -208,7 +233,6 @@ class GoalPlanner(BasePlanner):
                 "o-",
                 color=color,
                 linewidth=linewidth,
-                linestyle=linestyle,
                 markersize=4,
                 label="Plan",
                 alpha=alpha,
@@ -221,7 +245,6 @@ class GoalPlanner(BasePlanner):
                 "-",
                 color=color,
                 linewidth=linewidth,
-                linestyle=linestyle,
                 label="Plan",
                 alpha=alpha,
                 **kwargs

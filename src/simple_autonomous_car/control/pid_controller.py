@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.perception.perception import PerceptionPoints
 from simple_autonomous_car.control.base_controller import BaseController
+from simple_autonomous_car.constants import DEFAULT_GOAL_TOLERANCE
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -54,6 +55,8 @@ class PIDController(BaseController):
         perception_data: Optional[Dict[str, PerceptionPoints]] = None,
         costmap: Optional["BaseCostmap"] = None,
         plan: Optional[np.ndarray] = None,
+        goal: Optional[np.ndarray] = None,
+        goal_tolerance: Optional[float] = None,
         dt: float = 0.1,
     ) -> Dict[str, float]:
         """
@@ -103,8 +106,31 @@ class PIDController(BaseController):
             )
             steering_rate = np.clip(steering_rate, -1.0, 1.0)
 
-        # Velocity control
-        velocity_error = self.target_velocity - car_state.velocity
+        # Velocity control (adapt based on goal distance)
+        target_velocity = self.target_velocity
+        
+        # Reduce velocity if approaching goal (smooth deceleration)
+        if goal is not None:
+            distance_to_goal = np.linalg.norm(car_state.position() - goal)
+            tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
+            
+            # If within tolerance, stop completely
+            if distance_to_goal < tolerance:
+                target_velocity = 0.0
+            else:
+                # Start slowing down when within 10 meters of goal
+                slow_down_distance = 10.0
+                if distance_to_goal < slow_down_distance:
+                    # Smooth velocity reduction: linear from full speed to zero
+                    # Map distance from [tolerance, slow_down_distance] to velocity [0, target_velocity]
+                    if slow_down_distance > tolerance:
+                        velocity_factor = (distance_to_goal - tolerance) / (slow_down_distance - tolerance)
+                        velocity_factor = max(0.0, min(1.0, velocity_factor))  # Clamp to [0, 1]
+                        target_velocity = self.target_velocity * velocity_factor
+                    else:
+                        target_velocity = 0.0
+        
+        velocity_error = target_velocity - car_state.velocity
         acceleration = 0.5 * velocity_error
         acceleration = np.clip(acceleration, -2.0, 2.0)
 

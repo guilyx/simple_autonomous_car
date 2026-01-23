@@ -47,6 +47,8 @@ class BaseController(ABC):
         perception_data: Optional[Dict[str, PerceptionPoints]] = None,
         costmap: Optional["BaseCostmap"] = None,
         plan: Optional[np.ndarray] = None,
+        goal: Optional[np.ndarray] = None,
+        goal_tolerance: Optional[float] = None,
         dt: float = 0.1,
     ) -> Dict[str, float]:
         """
@@ -63,6 +65,8 @@ class BaseController(ABC):
             Costmap for obstacle avoidance.
         plan : np.ndarray, optional
             Planned path as array of shape (N, 2) with [x, y] waypoints.
+        goal : np.ndarray, optional
+            Goal position [x, y] for goal-based velocity adaptation.
         dt : float, default=0.1
             Time step in seconds.
 
