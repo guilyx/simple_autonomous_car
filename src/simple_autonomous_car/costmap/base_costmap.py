@@ -50,20 +50,24 @@ class BaseCostmap(ABC):
     @abstractmethod
     def update(
         self,
-        perception_data: dict,
-        car_state: CarState,
+        perception_data: Optional[dict] = None,
+        car_state: Optional[CarState] = None,
+        static_obstacles: Optional[np.ndarray] = None,
         frame: str = "global",
     ) -> None:
         """
-        Update costmap from perception data.
+        Update costmap from perception data or static obstacles.
 
         Parameters
         ----------
-        perception_data : dict
+        perception_data : dict, optional
             Dictionary of perception data from sensors.
             Keys are sensor names, values are PerceptionPoints.
-        car_state : CarState
-            Current car state.
+        car_state : CarState, optional
+            Current car state (required for ego frame or perception_data).
+        static_obstacles : np.ndarray, optional
+            Static obstacles as array of shape (N, 2) with [x, y] positions in global frame.
+            Used for static maps when perception_data is not available.
         frame : str, default="global"
             Frame to use for costmap ("global" or "ego").
         """

@@ -1,7 +1,7 @@
 """Grid-based costmap implementation."""
 
 import numpy as np
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 
 from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.perception.perception import PerceptionPoints
@@ -139,27 +139,35 @@ class GridCostmap(BaseCostmap):
 
     def update(
         self,
-        perception_data: Dict[str, PerceptionPoints],
-        car_state: CarState,
+        perception_data: Optional[Dict[str, PerceptionPoints]] = None,
+        car_state: Optional[CarState] = None,
+        static_obstacles: Optional[np.ndarray] = None,
         frame: str = "global",
     ) -> None:
         """
-        Update costmap from perception data.
+        Update costmap from perception data or static obstacles.
 
         Parameters
         ----------
-        perception_data : dict
+        perception_data : dict, optional
             Dictionary of perception data from sensors.
-        car_state : CarState
-            Current car state.
+            If None and static_obstacles provided, uses static obstacles.
+        car_state : CarState, optional
+            Current car state (required if using perception_data or ego frame).
+        static_obstacles : np.ndarray, optional
+            Static obstacles as array of shape (N, 2) with [x, y] positions in global frame.
+            Used when perception_data is None (e.g., for static maps).
         frame : str, default="global"
             Frame to use (not used if costmap has fixed frame).
         """
         if not self.enabled:
             return
 
+        if car_state is None and (self.frame == "ego" or perception_data is not None):
+            raise ValueError("car_state is required for ego frame or perception_data updates")
+
         # Update origin if ego frame (but keep grid size fixed)
-        if self.frame == "ego":
+        if self.frame == "ego" and car_state is not None:
             # Store new origin but grid dimensions stay the same
             # The grid is always centered at origin in ego frame
             self.origin = car_state.position().copy()
@@ -167,22 +175,30 @@ class GridCostmap(BaseCostmap):
         # Reset costmap (grid size is fixed, only data changes)
         self.costmap.fill(COST_FREE)
 
-        # Mark obstacles from perception data
-        for sensor_name, perception_points in perception_data.items():
-            if perception_points is None or len(perception_points.points) == 0:
-                continue
-
-            # Convert to global frame if needed
-            if perception_points.frame != "global":
-                points_global = perception_points.to_global_frame(car_state).points
-            else:
-                points_global = perception_points.points
-
-            # Mark obstacles in costmap
-            for point in points_global:
-                row, col = self._world_to_grid(point, car_state)
+        # Mark obstacles from static obstacles (if provided)
+        if static_obstacles is not None and len(static_obstacles) > 0:
+            for obstacle_pos in static_obstacles:
+                row, col = self._world_to_grid(obstacle_pos, car_state)
                 if 0 <= row < self.height_pixels and 0 <= col < self.width_pixels:
                     self.costmap[row, col] = COST_OCCUPIED
+
+        # Mark obstacles from perception data (if provided)
+        if perception_data is not None:
+            for sensor_name, perception_points in perception_data.items():
+                if perception_points is None or len(perception_points.points) == 0:
+                    continue
+
+                # Convert to global frame if needed
+                if perception_points.frame != "global":
+                    points_global = perception_points.to_global_frame(car_state).points
+                else:
+                    points_global = perception_points.points
+
+                # Mark obstacles in costmap
+                for point in points_global:
+                    row, col = self._world_to_grid(point, car_state)
+                    if 0 <= row < self.height_pixels and 0 <= col < self.width_pixels:
+                        self.costmap[row, col] = COST_OCCUPIED
 
         # Apply inflation (in-place to preserve array shape)
         if self.inflation_radius > 0:

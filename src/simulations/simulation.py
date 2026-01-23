@@ -289,8 +289,24 @@ def _run_simulation_loop(
             # 1. Get perception from sensors (works for both environments now)
             perception_data = car.sense_all(environment_data={"ground_truth_map": ground_truth_map})
 
-            # 2. Update costmap from perception data (if available)
-            if perception_data:
+            # 2. Update costmap from perception data or static obstacles
+            if is_grid_map and grid_map is not None:
+                # For grid maps, use static obstacles directly (more reliable than sensor data)
+                # Combine regular obstacles with boundary obstacles
+                all_obstacles = grid_map.obstacles.copy() if len(grid_map.obstacles) > 0 else np.array([]).reshape(0, 2)
+                boundary_obstacles = grid_map.get_boundary_obstacles(spacing=grid_map.resolution)
+                if len(all_obstacles) > 0:
+                    all_obstacles = np.vstack([all_obstacles, boundary_obstacles])
+                else:
+                    all_obstacles = boundary_obstacles
+                
+                costmap.update(
+                    perception_data=perception_data,  # Still include sensor data if available
+                    car_state=car.state,
+                    static_obstacles=all_obstacles,  # Add static obstacles + boundaries from map
+                )
+            elif perception_data:
+                # For track environments, use perception data only
                 costmap.update(perception_data, car.state)
 
             # 3. Generate plan (use costmap for obstacle avoidance)

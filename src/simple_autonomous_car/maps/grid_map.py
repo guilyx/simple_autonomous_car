@@ -142,6 +142,60 @@ class GridMap:
         ])
         return bounds, bounds.copy()
     
+    def get_boundary_obstacles(self, spacing: Optional[float] = None) -> np.ndarray:
+        """
+        Get boundary points as obstacles for costmap.
+        
+        Samples points along the map boundaries at regular intervals.
+        
+        Parameters
+        ----------
+        spacing : float, optional
+            Spacing between boundary points in meters.
+            If None, uses resolution.
+            
+        Returns
+        -------
+        np.ndarray
+            Array of boundary obstacle positions [[x1, y1], [x2, y2], ...]
+        """
+        if spacing is None:
+            spacing = self.resolution
+        
+        boundary_points = []
+        
+        # Bottom edge (left to right)
+        num_points_x = int(self.width / spacing) + 1
+        for i in range(num_points_x):
+            x = -self.width/2 + i * spacing
+            if x > self.width/2:
+                x = self.width/2
+            boundary_points.append([x, -self.height/2])
+        
+        # Right edge (bottom to top)
+        num_points_y = int(self.height / spacing) + 1
+        for i in range(1, num_points_y):  # Skip corner already added
+            y = -self.height/2 + i * spacing
+            if y > self.height/2:
+                y = self.height/2
+            boundary_points.append([self.width/2, y])
+        
+        # Top edge (right to left)
+        for i in range(1, num_points_x):  # Skip corner already added
+            x = self.width/2 - i * spacing
+            if x < -self.width/2:
+                x = -self.width/2
+            boundary_points.append([x, self.height/2])
+        
+        # Left edge (top to bottom)
+        for i in range(1, num_points_y - 1):  # Skip both corners already added
+            y = self.height/2 - i * spacing
+            if y < -self.height/2:
+                y = -self.height/2
+            boundary_points.append([-self.width/2, y])
+        
+        return np.array(boundary_points)
+    
     @classmethod
     def create_random_map(
         cls,
@@ -231,16 +285,24 @@ class GridMap:
         # Get car position for filtering
         car_pos = car_state.position() if car_state is not None else None
         
-        # Draw map boundaries (only if within horizon in ego frame)
+        # Draw map boundaries
         bounds, _ = self.get_bounds()
-        if frame == "ego" and horizon is not None and car_pos is not None:
-            # Filter boundaries by horizon
+        if frame == "ego" and horizon is not None and car_state is not None:
+            # Transform boundaries to ego frame and filter by horizon
             bounds_ego = np.array([car_state.transform_to_car_frame(b) for b in bounds])
             distances = np.linalg.norm(bounds_ego, axis=1)
-            visible_mask = distances <= horizon
-            if np.any(visible_mask):
-                visible_bounds = bounds_ego[visible_mask]
-                ax.plot(visible_bounds[:, 0], visible_bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
+            # Show boundaries that are within horizon OR form a visible segment
+            # Keep at least 4 points to form a rectangle
+            if len(bounds_ego) >= 4:
+                # For a rectangle, show all points but clip to horizon if needed
+                # Draw segments that are within horizon
+                for i in range(len(bounds_ego)):
+                    next_i = (i + 1) % len(bounds_ego)
+                    if distances[i] <= horizon or distances[next_i] <= horizon:
+                        # Draw segment if at least one endpoint is visible
+                        ax.plot([bounds_ego[i, 0], bounds_ego[next_i, 0]], 
+                               [bounds_ego[i, 1], bounds_ego[next_i, 1]], 
+                               'k-', linewidth=2, label="Map Bounds" if i == 0 else "", **kwargs)
         else:
             ax.plot(bounds[:, 0], bounds[:, 1], 'k-', linewidth=2, label="Map Bounds", **kwargs)
         

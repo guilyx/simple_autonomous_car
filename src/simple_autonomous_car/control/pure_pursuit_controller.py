@@ -153,22 +153,55 @@ class PurePursuitController(BaseController):
         target_vector = target_point - car_pos
         lookahead_dist = np.linalg.norm(target_vector)
 
-        if lookahead_dist < MIN_LOOKAHEAD_DISTANCE:
-            # Very close to target, reduce steering
-            steering_rate = -2.0 * car_state.steering_angle
+        # Check if we're very close to goal (if goal provided)
+        goal_tolerance_check = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
+        distance_to_goal = None
+        if goal is not None:
+            distance_to_goal = np.linalg.norm(car_pos - goal)
+        
+        # PRIORITY: Check goal distance FIRST - if within tolerance, NO STEERING AT ALL
+        # Initialize steering_rate (will be set in one of the branches below)
+        steering_rate = 0.0
+        
+        # If within tolerance, STOP STEERING COMPLETELY
+        if distance_to_goal is not None and distance_to_goal <= goal_tolerance_check:
+            # Within tolerance - NO STEERING AT ALL
+            steering_rate = 0.0
+        elif distance_to_goal is not None and distance_to_goal <= goal_tolerance_check * 1.5:
+            # Between tolerance and 1.5*tolerance - reduce steering proportionally
+            steering_reduction = (distance_to_goal - goal_tolerance_check) / (goal_tolerance_check * 0.5)
+            steering_reduction = max(0.0, min(1.0, steering_reduction))  # Clamp to [0, 1]
+            
+            # Calculate normal steering but scale it down
+            target_angle = np.arctan2(target_vector[1], target_vector[0])
+            alpha = target_angle - car_state.heading
+            alpha = np.arctan2(np.sin(alpha), np.cos(alpha))
+            desired_steering = alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR))
+            max_steering = np.pi / 4
+            desired_steering = np.clip(desired_steering, -max_steering, max_steering)
+            
+            # Scale down steering based on distance to goal
+            desired_steering *= steering_reduction
+            steering_error = desired_steering - car_state.steering_angle
+            steering_rate = 2.0 * steering_error * steering_reduction  # Also scale rate
+            steering_rate = np.clip(steering_rate, -self.max_steering_rate, self.max_steering_rate)
+        elif lookahead_dist < MIN_LOOKAHEAD_DISTANCE:
+            # Very close to target point (but not necessarily goal), reduce steering
+            # Scale steering by lookahead distance to avoid spinning
+            steering_scale = max(0.0, lookahead_dist / MIN_LOOKAHEAD_DISTANCE)
+            steering_rate = -2.0 * car_state.steering_angle * steering_scale
             steering_rate = np.clip(steering_rate, -self.max_steering_rate, self.max_steering_rate)
         else:
-            # Pure Pursuit: calculate desired steering angle
-            # Using bicycle model: tan(steering) = wheelbase * curvature
-            # Curvature = 2 * sin(alpha) / L, where alpha is angle to target, L is lookahead
+            # Normal Pure Pursuit: calculate desired steering angle
             target_angle = np.arctan2(target_vector[1], target_vector[0])
             alpha = target_angle - car_state.heading
             alpha = np.arctan2(np.sin(alpha), np.cos(alpha))  # Normalize to [-pi, pi]
 
-            # Pure Pursuit: simpler and more stable approach
-            # Directly use the angle to target, scaled by lookahead distance
-            # This provides smooth, stable path following
-            desired_steering = alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR))  # Adaptive gain
+            # Pure Pursuit: scale steering by lookahead distance
+            # When lookahead is small, steering should be reduced proportionally
+            # This prevents spinning when close to goal
+            lookahead_scale = min(1.0, lookahead_dist / self.lookahead_distance)
+            desired_steering = alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR)) * lookahead_scale
 
             # Limit steering angle
             max_steering = np.pi / 4  # 45 degrees
@@ -176,7 +209,7 @@ class PurePursuitController(BaseController):
 
             # Compute steering rate (smooth control)
             steering_error = desired_steering - car_state.steering_angle
-            steering_rate = 2.0 * steering_error  # Reduced gain for smoother control
+            steering_rate = 2.0 * steering_error * lookahead_scale  # Also scale rate by lookahead
             steering_rate = np.clip(steering_rate, -self.max_steering_rate, self.max_steering_rate)
 
         # Velocity control (adjust based on costmap and goal distance)
@@ -188,11 +221,12 @@ class PurePursuitController(BaseController):
             tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
             
             # If within tolerance, stop completely
-            if distance_to_goal < tolerance:
+            if distance_to_goal <= tolerance:
                 target_velocity = 0.0
             else:
                 # Start slowing down when within 10 meters of goal
-                slow_down_distance = 10.0
+                # Use a smaller slow_down_distance to ensure smooth deceleration even when close
+                slow_down_distance = max(10.0, tolerance * 5.0)  # At least 5x tolerance, or 10m
                 if distance_to_goal < slow_down_distance:
                     # Smooth velocity reduction: linear from full speed to zero
                     # At distance=tolerance, velocity=0; at distance=slow_down_distance, velocity=target_velocity
@@ -203,6 +237,11 @@ class PurePursuitController(BaseController):
                         target_velocity = self.target_velocity * velocity_factor
                     else:
                         target_velocity = 0.0
+                # Ensure we always slow down when very close (even if above tolerance)
+                if distance_to_goal < tolerance * 2.0:
+                    # Extra safety: cap velocity when very close
+                    max_velocity_near_goal = self.target_velocity * (distance_to_goal / (tolerance * 2.0))
+                    target_velocity = min(target_velocity, max_velocity_near_goal)
 
         # Reduce velocity if high cost ahead
         if costmap is not None and costmap.is_enabled():

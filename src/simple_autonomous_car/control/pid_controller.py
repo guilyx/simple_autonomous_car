@@ -115,13 +115,15 @@ class PIDController(BaseController):
             tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
             
             # If within tolerance, stop completely
-            if distance_to_goal < tolerance:
+            if distance_to_goal <= tolerance:
                 target_velocity = 0.0
             else:
                 # Start slowing down when within 10 meters of goal
-                slow_down_distance = 10.0
+                # Use a smaller slow_down_distance to ensure smooth deceleration even when close
+                slow_down_distance = max(10.0, tolerance * 5.0)  # At least 5x tolerance, or 10m
                 if distance_to_goal < slow_down_distance:
                     # Smooth velocity reduction: linear from full speed to zero
+                    # At distance=tolerance, velocity=0; at distance=slow_down_distance, velocity=target_velocity
                     # Map distance from [tolerance, slow_down_distance] to velocity [0, target_velocity]
                     if slow_down_distance > tolerance:
                         velocity_factor = (distance_to_goal - tolerance) / (slow_down_distance - tolerance)
@@ -129,6 +131,11 @@ class PIDController(BaseController):
                         target_velocity = self.target_velocity * velocity_factor
                     else:
                         target_velocity = 0.0
+                # Ensure we always slow down when very close (even if above tolerance)
+                if distance_to_goal < tolerance * 2.0:
+                    # Extra safety: cap velocity when very close
+                    max_velocity_near_goal = self.target_velocity * (distance_to_goal / (tolerance * 2.0))
+                    target_velocity = min(target_velocity, max_velocity_near_goal)
         
         velocity_error = target_velocity - car_state.velocity
         acceleration = 0.5 * velocity_error

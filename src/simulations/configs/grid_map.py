@@ -24,14 +24,14 @@ CONFIG = {
         "position": [20.0, 20.0],  # Goal position
     },
     "sensor": {
-        "max_range": 40.0,
+        "max_range": 10.0,
         "angular_resolution": 0.1,
         "point_noise_std": 0.05
     },
     "perception": {
-        "position_noise_std": 0.05,
-        "orientation_noise_std": 0.01,
-        "measurement_noise_std": 0.05,
+        "position_noise_std": 0.005,
+        "orientation_noise_std": 0.001,
+        "measurement_noise_std": 0.005,
     },
     "planner": {
         "type": "goal",
@@ -41,7 +41,7 @@ CONFIG = {
         "lookahead_distance": 8.0,
         "lookahead_gain": 1.5,
         "max_steering_rate": 0.8,
-        "target_velocity": 8.0,
+        "target_velocity": 2.0,
         "velocity_gain": 0.3,
     },
     "costmap": {
