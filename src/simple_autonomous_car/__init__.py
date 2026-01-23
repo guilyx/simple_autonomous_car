@@ -84,6 +84,10 @@ __all__ = [
     "BaseFilter",
     "KalmanFilter",
     "ParticleFilter",
+    # Footprints
+    "BaseFootprint",
+    "RectangularFootprint",
+    "CircularFootprint",
     # Visualization
     "AlertVisualizer",
     "plot_perception",

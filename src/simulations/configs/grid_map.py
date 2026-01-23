@@ -38,8 +38,8 @@ CONFIG = {
         "resolution": 0.5,
     },
     "controller": {
-        "lookahead_distance": 8.0,
-        "lookahead_gain": 1.5,
+        "lookahead_distance": 2.0,
+        "lookahead_gain": 0.8,
         "max_steering_rate": 0.8,
         "target_velocity": 2.0,
         "velocity_gain": 0.3,
@@ -47,15 +47,23 @@ CONFIG = {
     "costmap": {
         "width": 40.0,
         "height": 40.0,
-        "resolution": 0.5,
-        "inflation_radius": 2.5,  # Increased for better obstacle avoidance
+        "resolution": 1.0,
         "frame": "ego",
+        # Footprint-based inflation (more accurate than arbitrary radius)
+        "footprint": {
+            "type": "rectangular",
+            "length": 4.5,  # Vehicle length (meters)
+            "width": 1.8,  # Vehicle width (meters)
+            "padding": 0.3,  # Safety padding around footprint (meters)
+        },
+        # inflation_radius is now calculated from footprint automatically
+        # Can still override manually if needed: "inflation_radius": 2.5
     },
     "simulation": {
         "dt": 0.1,
         "total_time": 60.0,
         "num_steps": 600,
-        "horizon": 50.0,
+        "horizon": 20.0,
         "goal_tolerance": 2.0,  # Distance to goal to consider reached
     },
 }

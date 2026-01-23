@@ -190,13 +190,45 @@ def run_simulation(config: dict) -> None:
     # Create costmap
     costmap_config = config["costmap"]
     resolution = max(costmap_config["resolution"], 1.0)
+    
+    # Create footprint if specified in config
+    footprint = None
+    footprint_padding = 0.0
+    if "footprint" in costmap_config:
+        footprint_config = costmap_config["footprint"]
+        if footprint_config.get("type") == "rectangular":
+            from simple_autonomous_car.footprint import RectangularFootprint
+            footprint = RectangularFootprint(
+                length=footprint_config.get("length", 4.5),
+                width=footprint_config.get("width", 1.8),
+            )
+            footprint_padding = footprint_config.get("padding", 0.3)
+        elif footprint_config.get("type") == "circular":
+            from simple_autonomous_car.footprint import CircularFootprint
+            footprint = CircularFootprint(
+                radius=footprint_config.get("radius", 2.5),
+            )
+            footprint_padding = footprint_config.get("padding", 0.3)
+    
+    # Create costmap (with footprint if provided, otherwise use inflation_radius)
     costmap = GridCostmap(
         width=costmap_config["width"],
         height=costmap_config["height"],
         resolution=resolution,
-        inflation_radius=costmap_config["inflation_radius"],
+        inflation_radius=costmap_config.get("inflation_radius"),  # Optional if footprint provided
+        footprint=footprint,
+        footprint_padding=footprint_padding,
         frame=costmap_config["frame"],
     )
+    
+    # Print footprint info if used
+    if footprint is not None:
+        print(f"✓ Using {footprint.name} for costmap inflation")
+        print(f"  Footprint bounding radius: {footprint.get_bounding_radius():.2f}m")
+        print(f"  Footprint padding: {footprint_padding:.2f}m")
+        print(f"  Costmap inflation radius: {costmap.inflation_radius:.2f}m (calculated from footprint)")
+    elif costmap_config.get("inflation_radius") is not None:
+        print(f"✓ Using manual inflation radius: {costmap.inflation_radius:.2f}m")
 
     # Create alert system (only for track environments)
     alert_system = None

@@ -7,6 +7,10 @@ from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.perception.perception import PerceptionPoints
 from simple_autonomous_car.costmap.base_costmap import BaseCostmap
 from simple_autonomous_car.costmap.inflation import inflate_obstacles
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from simple_autonomous_car.footprint.base_footprint import BaseFootprint
 from simple_autonomous_car.constants import (
     DEFAULT_COSTMAP_WIDTH,
     DEFAULT_COSTMAP_HEIGHT,
@@ -35,8 +39,15 @@ class GridCostmap(BaseCostmap):
         Height of costmap in meters.
     resolution : float, default=0.5
         Resolution in meters per cell.
-    inflation_radius : float, default=1.0
+    inflation_radius : float, optional
         Inflation radius for obstacles in meters.
+        If None and footprint provided, uses footprint bounding radius + padding.
+        If None and no footprint, uses DEFAULT_INFLATION_RADIUS.
+    footprint : BaseFootprint, optional
+        Vehicle footprint for accurate collision checking.
+        If provided, inflation_radius is calculated from footprint.
+    footprint_padding : float, default=0.0
+        Additional safety padding around footprint in meters.
     origin : np.ndarray, optional
         Origin position [x, y] in global frame. If None, uses car position.
     frame : str, default="ego"
@@ -61,11 +72,25 @@ class GridCostmap(BaseCostmap):
         width: float = DEFAULT_COSTMAP_WIDTH,
         height: float = DEFAULT_COSTMAP_HEIGHT,
         resolution: float = DEFAULT_COSTMAP_RESOLUTION,
-        inflation_radius: float = DEFAULT_INFLATION_RADIUS,
+        inflation_radius: Optional[float] = None,
+        footprint: Optional["BaseFootprint"] = None,
+        footprint_padding: float = 0.0,
         origin: Optional[np.ndarray] = None,
         frame: str = "ego",
         enabled: bool = True,
     ):
+        # Determine inflation radius: use footprint if provided, otherwise use provided or default
+        self.footprint = footprint
+        self.footprint_padding = footprint_padding
+        
+        if inflation_radius is None:
+            if footprint is not None:
+                # Use footprint bounding radius + padding
+                inflation_radius = footprint.get_inflation_radius(padding=footprint_padding)
+            else:
+                # Use default
+                inflation_radius = DEFAULT_INFLATION_RADIUS
+        
         super().__init__(resolution=resolution, inflation_radius=inflation_radius, enabled=enabled)
         self.width = width
         self.height = height
