@@ -1,8 +1,7 @@
 """Inflation utilities for costmaps."""
 
 import numpy as np
-from scipy.ndimage import maximum_filter
-from typing import Tuple
+from scipy.ndimage import maximum_filter  # type: ignore[import-untyped]
 
 
 def compute_inflation_kernel(radius: float, resolution: float) -> np.ndarray:
@@ -78,28 +77,28 @@ def inflate_obstacles(
     if method == "linear":
         # More efficient linear inflation using distance transform
         from scipy.ndimage import distance_transform_edt
-        
+
         # Create binary obstacle map
         obstacles = costmap >= 0.5
-        
+
         # Compute distance to nearest obstacle
         distances = distance_transform_edt(~obstacles) * resolution
-        
+
         # Apply linear decay
         result = np.zeros_like(costmap)
         mask = distances <= inflation_radius
         result[mask] = 1.0 - (distances[mask] / inflation_radius)
         result[~mask] = costmap[~mask]
-        
+
         # Preserve original obstacles (set to max cost)
         result[obstacles] = 1.0
-        
+
         return result
     else:  # binary
         kernel_size = int(2 * inflation_radius / resolution) + 1
         kernel = np.ones((kernel_size, kernel_size))
         inflated = maximum_filter(costmap, footprint=kernel)
-        return inflated
+        return np.asarray(inflated, dtype=costmap.dtype)
 
 
 def compute_distance_transform(costmap: np.ndarray, resolution: float) -> np.ndarray:
@@ -124,4 +123,4 @@ def compute_distance_transform(costmap: np.ndarray, resolution: float) -> np.nda
     inverted = 1.0 - costmap
     # Compute distance transform
     distances = distance_transform_edt(inverted) * resolution
-    return distances
+    return np.asarray(distances, dtype=np.float64)

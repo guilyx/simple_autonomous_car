@@ -1,26 +1,25 @@
 """Grid-based costmap implementation."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Dict, Optional, Tuple, Union
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.perception.perception import PerceptionPoints
 from simple_autonomous_car.costmap.base_costmap import BaseCostmap
 from simple_autonomous_car.costmap.inflation import inflate_obstacles
-from typing import TYPE_CHECKING
+from simple_autonomous_car.perception.perception import PerceptionPoints
 
 if TYPE_CHECKING:
     from simple_autonomous_car.footprint.base_footprint import BaseFootprint
 from simple_autonomous_car.constants import (
-    DEFAULT_COSTMAP_WIDTH,
-    DEFAULT_COSTMAP_HEIGHT,
-    DEFAULT_COSTMAP_RESOLUTION,
-    DEFAULT_INFLATION_RADIUS,
     COST_FREE,
     COST_OCCUPIED,
-    COST_THRESHOLD,
     DEFAULT_COSTMAP_ALPHA,
+    DEFAULT_COSTMAP_HEIGHT,
+    DEFAULT_COSTMAP_RESOLUTION,
+    DEFAULT_COSTMAP_WIDTH,
     DEFAULT_COSTMAP_ZORDER,
+    DEFAULT_INFLATION_RADIUS,
 )
 
 
@@ -72,17 +71,17 @@ class GridCostmap(BaseCostmap):
         width: float = DEFAULT_COSTMAP_WIDTH,
         height: float = DEFAULT_COSTMAP_HEIGHT,
         resolution: float = DEFAULT_COSTMAP_RESOLUTION,
-        inflation_radius: Optional[float] = None,
+        inflation_radius: float | None = None,
         footprint: Optional["BaseFootprint"] = None,
         footprint_padding: float = 0.0,
-        origin: Optional[np.ndarray] = None,
+        origin: np.ndarray | None = None,
         frame: str = "ego",
         enabled: bool = True,
     ):
         # Determine inflation radius: use footprint if provided, otherwise use provided or default
         self.footprint = footprint
         self.footprint_padding = footprint_padding
-        
+
         if inflation_radius is None:
             if footprint is not None:
                 # Use footprint bounding radius + padding
@@ -90,7 +89,7 @@ class GridCostmap(BaseCostmap):
             else:
                 # Use default
                 inflation_radius = DEFAULT_INFLATION_RADIUS
-        
+
         super().__init__(resolution=resolution, inflation_radius=inflation_radius, enabled=enabled)
         self.width = width
         self.height = height
@@ -102,7 +101,9 @@ class GridCostmap(BaseCostmap):
         # Initialize costmap (0.0 = free space)
         self.costmap = np.zeros((self.height_pixels, self.width_pixels), dtype=np.float32)
 
-    def _world_to_grid(self, position: np.ndarray, car_state: Optional[CarState] = None) -> Tuple[int, int]:
+    def _world_to_grid(
+        self, position: np.ndarray, car_state: CarState | None = None
+    ) -> tuple[int, int]:
         """
         Convert world position to grid coordinates.
 
@@ -132,7 +133,7 @@ class GridCostmap(BaseCostmap):
 
         return row, col
 
-    def _grid_to_world(self, row: int, col: int, car_state: Optional[CarState] = None) -> np.ndarray:
+    def _grid_to_world(self, row: int, col: int, car_state: CarState | None = None) -> np.ndarray:
         """
         Convert grid coordinates to world position.
 
@@ -164,9 +165,9 @@ class GridCostmap(BaseCostmap):
 
     def update(
         self,
-        perception_data: Optional[Dict[str, PerceptionPoints]] = None,
-        car_state: Optional[CarState] = None,
-        static_obstacles: Optional[np.ndarray] = None,
+        perception_data: dict[str, PerceptionPoints] | None = None,
+        car_state: CarState | None = None,
+        static_obstacles: np.ndarray | None = None,
         frame: str = "global",
     ) -> None:
         """
@@ -214,7 +215,7 @@ class GridCostmap(BaseCostmap):
                     continue
 
                 # Convert to global frame if needed
-                if perception_points.frame != "global":
+                if perception_points.frame != "global" and car_state is not None:
                     points_global = perception_points.to_global_frame(car_state).points
                 else:
                     points_global = perception_points.points
@@ -240,7 +241,9 @@ class GridCostmap(BaseCostmap):
                 min_cols = min(self.costmap.shape[1], inflated.shape[1])
                 self.costmap[:min_rows, :min_cols] = inflated[:min_rows, :min_cols]
 
-    def get_cost(self, position: np.ndarray, frame: str = "global", car_state: Optional[CarState] = None) -> float:
+    def get_cost(
+        self, position: np.ndarray, frame: str = "global", car_state: CarState | None = None
+    ) -> float:
         """
         Get cost at a specific position.
 
@@ -277,7 +280,7 @@ class GridCostmap(BaseCostmap):
         center: np.ndarray,
         size: float,
         frame: str = "global",
-        car_state: Optional[CarState] = None,
+        car_state: CarState | None = None,
     ) -> np.ndarray:
         """
         Get cost values in a region.
@@ -317,22 +320,20 @@ class GridCostmap(BaseCostmap):
         return self.costmap[row_start:row_end, col_start:col_end].copy()
 
     def get_visualization_data(
-        self,
-        car_state: Optional[CarState] = None,
-        **kwargs
-    ) -> Dict:
+        self, car_state: CarState | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Get visualization data for GridCostmap.
-        
+
         Returns costmap array, bounds, origin, and frame information.
-        
+
         Parameters
         ----------
         car_state : CarState, optional
             Current car state (for frame transformations).
         **kwargs
             Additional arguments.
-        
+
         Returns
         -------
         Dict
@@ -367,17 +368,13 @@ class GridCostmap(BaseCostmap):
             Full 2D costmap array.
         """
         return self.costmap.copy()
-    
+
     def visualize(
-        self,
-        ax,
-        car_state: Optional[CarState] = None,
-        frame: str = "global",
-        **kwargs
+        self, ax: Any, car_state: CarState | None = None, frame: str = "global", **kwargs: Any
     ) -> None:
         """
         Visualize costmap on the given axes.
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes
@@ -394,18 +391,17 @@ class GridCostmap(BaseCostmap):
         """
         if not self.enabled:
             return
-        
+
         import numpy as np
-        import matplotlib.pyplot as plt
-        
+
         # Extract visualization parameters
         alpha = kwargs.pop("alpha", DEFAULT_COSTMAP_ALPHA)
         cmap = kwargs.pop("cmap", "RdYlGn_r")
         show_car = kwargs.pop("show_car", False)
-        
+
         # Get costmap data
         costmap_data = self.get_full_costmap()
-        
+
         # Mask out empty space (zero-cost cells) to save computation
         # Only mask if there's actual data to show
         if np.any(costmap_data > COST_FREE):
@@ -413,7 +409,7 @@ class GridCostmap(BaseCostmap):
         else:
             # Costmap is empty, nothing to visualize
             return
-        
+
         # Use imshow for optimal performance
         if frame == "ego" and self.frame == "ego" and car_state is not None:
             # Costmap is in ego frame, plot in ego frame
@@ -435,7 +431,7 @@ class GridCostmap(BaseCostmap):
                 interpolation="nearest",
                 alpha=alpha,
                 zorder=DEFAULT_COSTMAP_ZORDER,
-                **kwargs
+                **kwargs,
             )
         elif self.frame == "ego" and car_state is not None and frame == "global":
             # Costmap is in ego frame, but we want to plot in global frame
@@ -443,18 +439,20 @@ class GridCostmap(BaseCostmap):
             # This avoids jerky artifacts from rotating the array every frame
             car_pos = car_state.position()
             car_heading = car_state.heading
-            
+
             from matplotlib.transforms import Affine2D
-            
+
             # Use transform to rotate/translate at rendering time (smooth, no array manipulation)
             # This is the key difference: ego frame doesn't rotate array, it uses transforms
             # Transform order: rotate around origin (0,0) first, then translate to car position
             # This correctly transforms ego frame (centered at origin) to global frame
-            trans = (Affine2D()
-                    .rotate(car_heading)  # Rotate around origin (0,0) in ego frame
-                    .translate(car_pos[0], car_pos[1])  # Then translate to car position
-                    + ax.transData)
-            
+            trans = (
+                Affine2D()
+                .rotate(car_heading)  # Rotate around origin (0,0) in ego frame
+                .translate(car_pos[0], car_pos[1])  # Then translate to car position
+                + ax.transData
+            )
+
             # Extent in ego frame (centered at origin)
             extent = [
                 -self.width / 2,
@@ -462,7 +460,7 @@ class GridCostmap(BaseCostmap):
                 -self.height / 2,
                 self.height / 2,
             ]
-            
+
             # Plot with transform - matplotlib handles rotation smoothly at render time
             # No array rotation = no jerky artifacts
             ax.imshow(
@@ -476,7 +474,7 @@ class GridCostmap(BaseCostmap):
                 alpha=alpha,
                 zorder=DEFAULT_COSTMAP_ZORDER,
                 transform=trans,
-                **kwargs
+                **kwargs,
             )
         else:
             # Global frame costmap in global frame
@@ -497,9 +495,9 @@ class GridCostmap(BaseCostmap):
                 interpolation="nearest",
                 alpha=alpha,
                 zorder=DEFAULT_COSTMAP_ZORDER,
-                **kwargs
+                **kwargs,
             )
-        
+
         # Show car position if requested
         if show_car and car_state is not None:
             car_pos = car_state.position()

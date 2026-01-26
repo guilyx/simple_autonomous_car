@@ -20,13 +20,13 @@ that handles its own visualization logic. This makes visualization:
 # In your simulation loop:
 for step in range(num_steps):
     # ... compute plan, control, etc ...
-    
+
     # Update visualization - components handle their own plotting
     track.visualize(ax=ax_world, frame="global")
     costmap.visualize(ax=ax_world, car_state=car.state, frame="global")
     planner.visualize(ax=ax_world, car_state=car.state, plan=plan, frame="global")
     controller.visualize(ax=ax_world, car_state=car.state, plan=plan, frame="global")
-    
+
     # Or use the orchestrator:
     enhanced_visualization.update_all_views(
         axes, track, car, plan, perception_points,
@@ -42,16 +42,16 @@ for step in range(num_steps):
 - `Costmap.visualize(ax, car_state, frame, **kwargs)` - Plot costmap overlay
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon, Arc
-from typing import Optional, Dict, Any
+from typing import Any
 
-from simple_autonomous_car.track.track import Track
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Polygon
+
 from simple_autonomous_car.car.car import Car
 from simple_autonomous_car.perception.perception import PerceptionPoints
-from simple_autonomous_car.visualization.utils import plot_perception, plot_car
-from simple_autonomous_car.maps.grid_map import GridMap
+from simple_autonomous_car.track.track import Track
+from simple_autonomous_car.visualization.utils import plot_car, plot_perception
 
 
 def create_enhanced_visualization(
@@ -74,9 +74,9 @@ def create_enhanced_visualization(
 
     axes = {
         "world": fig.add_subplot(gs[0, 0]),  # World frame view
-        "ego": fig.add_subplot(gs[0, 1]),    # Ego frame view
+        "ego": fig.add_subplot(gs[0, 1]),  # Ego frame view
     }
-    
+
     # Cache for static elements (track, etc.)
     cache = {
         "world": {"track_plotted": False},
@@ -87,20 +87,20 @@ def create_enhanced_visualization(
 
 
 def _plot_costmap_overlay(
-    ax,
-    costmap,
+    ax: Any,
+    costmap: Any,
     car: Car,
     frame: str = "global",
     alpha: float = 0.3,
 ) -> None:
     """
     Plot costmap overlay using costmap's visualize() method.
-    
+
     This makes visualization reusable and component-specific.
     """
     if costmap is None:
         return
-    
+
     # Use component's visualize method
     try:
         costmap.visualize(
@@ -116,20 +116,20 @@ def _plot_costmap_overlay(
 
 
 def _plot_controller_overlay(
-    ax,
-    controller,
+    ax: Any,
+    controller: Any,
     car: Car,
     plan: np.ndarray,
     frame: str = "global",
 ) -> None:
     """
     Plot controller visualization overlay using controller's visualize() method.
-    
+
     This makes visualization reusable and component-specific.
     """
     if controller is None or len(plan) == 0:
         return
-    
+
     # Use component's visualize method
     try:
         controller.visualize(
@@ -142,22 +142,23 @@ def _plot_controller_overlay(
     except Exception as e:
         # Log error for debugging but don't crash
         import warnings
+
         warnings.warn(f"Controller visualization failed: {e}", RuntimeWarning)
 
 
 def update_world_view(
-    ax,
-    track: Optional[Track],
-    grid_map,
-    goal: Optional[np.ndarray],
+    ax: Any,
+    track: Track | None,
+    grid_map: Any,
+    goal: np.ndarray | None,
     car: Car,
     plan: np.ndarray,
-    perception_points: Optional[PerceptionPoints],
-    costmap,
-    controller,
-    planner,
-    view_bounds: tuple,
-    cache: Optional[dict] = None,
+    perception_points: PerceptionPoints | None,
+    costmap: Any,
+    controller: Any,
+    planner: Any,
+    view_bounds: tuple[float, float, float, float],
+    cache: dict[str, Any] | None = None,
     is_grid_map: bool = False,
 ) -> None:
     """Update world frame visualization with all components overlaid."""
@@ -217,18 +218,18 @@ def update_world_view(
 
 
 def update_ego_view(
-    ax,
+    ax: Any,
     car: Car,
-    track: Optional[Track],
-    grid_map,
-    goal: Optional[np.ndarray],
-    perception_points: Optional[PerceptionPoints],
+    track: Track | None,
+    grid_map: Any,
+    goal: np.ndarray | None,
+    perception_points: PerceptionPoints | None,
     plan: np.ndarray,
-    costmap,
-    controller,
-    planner,
+    costmap: Any,
+    controller: Any,
+    planner: Any,
     horizon: float,
-    cache: Optional[dict] = None,
+    cache: dict[str, Any] | None = None,
     is_grid_map: bool = False,
 ) -> None:
     """Update ego frame visualization with all components overlaid."""
@@ -244,12 +245,6 @@ def update_ego_view(
     ax.set_xlim(-horizon * 1.1, horizon * 1.1)
     ax.set_ylim(-horizon * 1.1, horizon * 1.1)
 
-    # Transform plan to car frame
-    if len(plan) > 0:
-        plan_ego = np.array([car.state.transform_to_car_frame(point) for point in plan])
-    else:
-        plan_ego = np.array([])
-
     # 0. Plot environment in ego frame
     if is_grid_map and grid_map is not None:
         grid_map.visualize(ax=ax, car_state=car.state, frame="ego", goal=goal, horizon=horizon)
@@ -260,8 +255,8 @@ def update_ego_view(
             frame="ego",
             show_centerline=False,
             show_bounds=True,
-        horizon=horizon,
-    )
+            horizon=horizon,
+        )
 
     # 1. Plot costmap overlay in ego frame (if enabled) - plot early so it's behind other elements
     _plot_costmap_overlay(ax, costmap, car, frame="ego", alpha=0.6)
@@ -296,13 +291,17 @@ def update_ego_view(
 
     # 5. Car at origin (top layer)
     car_corners_car = np.array([[-2, -0.9], [-2, 0.9], [2, 0.9], [2, -0.9]])
-    car_poly = Polygon(car_corners_car, closed=True, color="navy", alpha=0.8, label="Car", zorder=10)
+    car_poly = Polygon(
+        car_corners_car, closed=True, color="navy", alpha=0.8, label="Car", zorder=10
+    )
     ax.add_patch(car_poly)
-    
+
     # Heading arrow (forward direction)
     ax.arrow(
-        0, 0,
-        3.0, 0,
+        0,
+        0,
+        3.0,
+        0,
         head_width=1.2,
         head_length=1.0,
         fc="navy",
@@ -314,20 +313,20 @@ def update_ego_view(
 
 
 def update_all_views(
-    axes: dict,
-    track: Optional[Track],
+    axes: dict[str, Any],
+    track: Track | None,
     car: Car,
     plan: np.ndarray,
-    perception_points: Optional[PerceptionPoints],
-    costmap,
-    controller,
-    planner,
-    view_bounds: tuple,
+    perception_points: PerceptionPoints | None,
+    costmap: Any,
+    controller: Any,
+    planner: Any,
+    view_bounds: tuple[float, float, float, float],
     horizon: float,
-    control_history: Optional[list] = None,
-    cache: Optional[dict] = None,
-    grid_map=None,
-    goal: Optional[np.ndarray] = None,
+    control_history: list[Any] | None = None,
+    cache: dict[str, Any] | None = None,
+    grid_map: Any = None,
+    goal: np.ndarray | None = None,
     is_grid_map: bool = False,
 ) -> None:
     """

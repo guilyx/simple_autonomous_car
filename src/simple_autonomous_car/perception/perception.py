@@ -1,7 +1,8 @@
 """Perception data structures - points in local (ego) frame."""
 
+from typing import TYPE_CHECKING, Optional
+
 import numpy as np
-from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from simple_autonomous_car.car.car import CarState
@@ -70,7 +71,7 @@ class PerceptionPoints:
 
         if self.frame == "ego":
             # Import here to avoid circular import
-            from simple_autonomous_car.car.car import CarState
+
             global_points = np.array(
                 [car_state.transform_to_world_frame(point) for point in self.points]
             )
@@ -101,6 +102,6 @@ class PerceptionPoints:
         """Return number of points."""
         return len(self.points)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int | slice) -> np.ndarray:
         """Get point(s) by index."""
         return self.points[index]

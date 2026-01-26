@@ -1,14 +1,14 @@
 """Visualization utilities for alert systems."""
 
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
-from typing import Dict, Optional
+from typing import Any
 
-from simple_autonomous_car.track.track import Track
-from simple_autonomous_car.car.car import Car
-from simple_autonomous_car.perception.perception import PerceptionPoints
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.patches import Polygon
+
 from simple_autonomous_car.maps.frenet_map import FrenetMap
+from simple_autonomous_car.perception.perception import PerceptionPoints
+from simple_autonomous_car.track.track import Track
 
 
 class AlertVisualizer:
@@ -17,7 +17,7 @@ class AlertVisualizer:
     def __init__(
         self,
         track: Track,
-        frenet_map: Optional[FrenetMap] = None,
+        frenet_map: FrenetMap | None = None,
         figsize: tuple = (16, 8),
     ):
         """
@@ -31,12 +31,15 @@ class AlertVisualizer:
         self.track = track
         self.frenet_map = frenet_map if frenet_map is not None else FrenetMap(track)
         self.figsize = figsize
-        self.fig = None
-        self.axes = None
+        self.fig: Any = None
+        self.axes: Any = None
 
     def create_figure(self) -> None:
         """Create figure with world and car frame views."""
-        self.fig, (self.ax_world, self.ax_car) = plt.subplots(1, 2, figsize=self.figsize)
+        fig, (ax_world, ax_car) = plt.subplots(1, 2, figsize=self.figsize)
+        self.fig = fig
+        self.ax_world = ax_world
+        self.ax_car = ax_car
         self._setup_axes()
 
     def _setup_axes(self) -> None:
@@ -55,7 +58,7 @@ class AlertVisualizer:
         self.ax_car.set_aspect("equal")
         self.ax_car.grid(True, alpha=0.3)
 
-    def plot_track(self, ax=None) -> None:
+    def plot_track(self, ax: Any = None) -> None:
         """
         Plot full track boundaries.
 
@@ -85,9 +88,10 @@ class AlertVisualizer:
     def plot_perception(
         self,
         perception_points: PerceptionPoints,
-        car,
+        car_state: Any,
+        car: Any,
         highlight_alerts: bool = False,
-        alert_points: Optional[list] = None,
+        alert_points: list[Any] | None = None,
     ) -> None:
         """
         Plot perception points in both world and car frames.
@@ -136,10 +140,10 @@ class AlertVisualizer:
                     alert_points_global.append(point_global)
 
                 if alert_points_global:
-                    alert_points_global = np.array(alert_points_global)
+                    alert_points_global_arr = np.asarray(alert_points_global, dtype=np.float64)  # type: ignore[assignment]
                     self.ax_world.scatter(
-                        alert_points_global[:, 0],
-                        alert_points_global[:, 1],
+                        alert_points_global_arr[:, 0],
+                        alert_points_global_arr[:, 1],
                         c="orange",
                         s=150,
                         marker="x",
@@ -148,7 +152,7 @@ class AlertVisualizer:
                         zorder=10,
                     )
 
-    def plot_car(self, car, ax=None) -> None:
+    def plot_car(self, car: Any, ax: Any = None) -> None:
         """
         Plot car position.
 
@@ -170,9 +174,10 @@ class AlertVisualizer:
 
     def plot_alert_result(
         self,
-        alert_result: Dict,
+        alert_result: dict[str, Any],
         perception_points: PerceptionPoints,
-        car,
+        car_state: Any,
+        car: Any,
     ) -> None:
         """
         Plot complete alert visualization.
@@ -192,6 +197,7 @@ class AlertVisualizer:
         # Plot perception with alerts
         self.plot_perception(
             perception_points,
+            car_state,
             car,
             highlight_alerts=True,
             alert_points=alert_result.get("alert_points", []),
@@ -280,7 +286,7 @@ class AlertVisualizer:
                 steps,
                 0,
                 deviations,
-                where=np.array(warnings),
+                where=np.array(warnings),  # type: ignore[arg-type]
                 alpha=0.3,
                 color="orange",
                 label="Warning Zone",
@@ -290,7 +296,7 @@ class AlertVisualizer:
                 steps,
                 0,
                 deviations,
-                where=np.array(criticals),
+                where=np.array(criticals),  # type: ignore[arg-type]
                 alpha=0.3,
                 color="red",
                 label="Critical Zone",

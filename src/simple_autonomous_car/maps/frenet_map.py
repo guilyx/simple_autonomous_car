@@ -1,10 +1,9 @@
 """Map representation in Frenet frame."""
 
 import numpy as np
-from typing import Tuple
 
-from simple_autonomous_car.track.track import Track
 from simple_autonomous_car.frames.frenet import FrenetFrame
+from simple_autonomous_car.track.track import Track
 
 
 class FrenetMap:
@@ -40,7 +39,7 @@ class FrenetMap:
         self.inner_bound_frenet = np.array(inner_frenet)
         self.outer_bound_frenet = np.array(outer_frenet)
 
-    def get_bounds_at_s(self, s: float) -> Tuple[float, float]:
+    def get_bounds_at_s(self, s: float) -> tuple[float, float]:
         """
         Get inner and outer boundary lateral offsets at distance s.
 
@@ -66,9 +65,7 @@ class FrenetMap:
 
         return d_inner, d_outer
 
-    def get_bounds_in_range(
-        self, s_start: float, s_end: float
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def get_bounds_in_range(self, s_start: float, s_end: float) -> tuple[np.ndarray, np.ndarray]:
         """
         Get inner and outer bounds in a range of s values.
 

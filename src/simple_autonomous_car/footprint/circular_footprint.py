@@ -8,9 +8,9 @@ from simple_autonomous_car.footprint.base_footprint import BaseFootprint
 class CircularFootprint(BaseFootprint):
     """
     Circular footprint for vehicles.
-    
+
     Represents a vehicle as a circle (simpler but less accurate for cars).
-    
+
     Parameters
     ----------
     radius : float
@@ -18,22 +18,22 @@ class CircularFootprint(BaseFootprint):
     name : str, default="circular_footprint"
         Footprint name.
     """
-    
+
     def __init__(self, radius: float, name: str = "circular_footprint"):
         super().__init__(name=name)
         self.radius = radius
-    
+
     def get_vertices(self, position: np.ndarray, heading: float) -> np.ndarray:
         """
         Get circle vertices (approximated as polygon) in world frame.
-        
+
         Parameters
         ----------
         position : np.ndarray
             Vehicle position [x, y] in world frame.
         heading : float
             Vehicle heading angle (not used for circle, but kept for interface compatibility).
-            
+
         Returns
         -------
         np.ndarray
@@ -42,19 +42,19 @@ class CircularFootprint(BaseFootprint):
         # Approximate circle as 16-sided polygon
         num_vertices = 16
         angles = np.linspace(0, 2 * np.pi, num_vertices, endpoint=False)
-        
+
         vertices = position + self.radius * np.column_stack([np.cos(angles), np.sin(angles)])
-        
-        return vertices
-    
+
+        return np.asarray(vertices, dtype=np.float64)
+
     def get_bounding_radius(self) -> float:
         """Get bounding radius (same as circle radius)."""
         return self.radius
-    
+
     def contains_point(self, point: np.ndarray, position: np.ndarray, heading: float) -> bool:
         """
         Check if point is inside circle.
-        
+
         Parameters
         ----------
         point : np.ndarray
@@ -63,11 +63,11 @@ class CircularFootprint(BaseFootprint):
             Vehicle position [x, y] in world frame.
         heading : float
             Vehicle heading angle (not used for circle).
-            
+
         Returns
         -------
         bool
             True if point is inside circle.
         """
         distance = np.linalg.norm(point - position)
-        return distance <= self.radius
+        return bool(distance <= self.radius)

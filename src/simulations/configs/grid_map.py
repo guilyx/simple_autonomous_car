@@ -23,11 +23,7 @@ CONFIG = {
     "goal": {
         "position": [20.0, 20.0],  # Goal position
     },
-    "sensor": {
-        "max_range": 10.0,
-        "angular_resolution": 0.1,
-        "point_noise_std": 0.05
-    },
+    "sensor": {"max_range": 10.0, "angular_resolution": 0.1, "point_noise_std": 0.05},
     "perception": {
         "position_noise_std": 0.005,
         "orientation_noise_std": 0.001,

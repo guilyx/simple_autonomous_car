@@ -1,16 +1,14 @@
 """Tests for error detection module."""
 
-import numpy as np
-import pytest
-
 import sys
-sys.path.insert(0, 'src')
 
-from simple_autonomous_car.track.track import Track
+sys.path.insert(0, "src")
+
+from simple_autonomous_car.car.car import CarState
+from simple_autonomous_car.detection.error_detector import LocalizationErrorDetector
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
 from simple_autonomous_car.maps.perceived_map import PerceivedMap
-from simple_autonomous_car.detection.error_detector import LocalizationErrorDetector
-from simple_autonomous_car.car.car import CarState
+from simple_autonomous_car.track.track import Track
 
 
 def test_error_detector_creation():

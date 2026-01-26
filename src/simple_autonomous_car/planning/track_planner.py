@@ -1,19 +1,18 @@
 """Track-based path planner."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Optional
-import matplotlib.pyplot as plt
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.track.track import Track
-from simple_autonomous_car.planning.base_planner import BasePlanner
 from simple_autonomous_car.constants import (
+    DEFAULT_PLAN_LINEWIDTH,
     DEFAULT_PLANNER_LOOKAHEAD_DISTANCE,
     DEFAULT_WAYPOINT_SPACING,
-    DEFAULT_PLAN_LINEWIDTH,
     MIN_SEGMENT_LENGTH,
 )
-from typing import TYPE_CHECKING
+from simple_autonomous_car.planning.base_planner import BasePlanner
+from simple_autonomous_car.track.track import Track
 
 if TYPE_CHECKING:
     from simple_autonomous_car.costmap.base_costmap import BaseCostmap
@@ -57,18 +56,16 @@ class TrackPlanner(BasePlanner):
         """Precompute cumulative distances along track."""
         self.cumulative_distances = np.zeros(len(self.track.centerline))
         for i in range(1, len(self.track.centerline)):
-            dist = np.linalg.norm(
-                self.track.centerline[i] - self.track.centerline[i - 1]
-            )
+            dist = np.linalg.norm(self.track.centerline[i] - self.track.centerline[i - 1])
             self.cumulative_distances[i] = self.cumulative_distances[i - 1] + dist
         self.total_length = self.cumulative_distances[-1]
 
     def plan(
         self,
         car_state: CarState,
-        perception_data: Optional[dict] = None,
+        perception_data: dict | None = None,
         costmap: Optional["BaseCostmap"] = None,
-        goal: Optional[np.ndarray] = None,
+        goal: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Generate plan along track centerline.
@@ -99,7 +96,6 @@ class TrackPlanner(BasePlanner):
         s_start = self.cumulative_distances[closest_idx]
 
         # Generate waypoints ahead
-        s_end = s_start + self.lookahead_distance
         num_waypoints = int(self.lookahead_distance / self.waypoint_spacing) + 1
 
         waypoints = []
@@ -122,25 +118,24 @@ class TrackPlanner(BasePlanner):
             else:
                 t = 0.0
 
-            point = (
-                self.track.centerline[idx - 1]
-                + t * (self.track.centerline[idx] - self.track.centerline[idx - 1])
+            point = self.track.centerline[idx - 1] + t * (
+                self.track.centerline[idx] - self.track.centerline[idx - 1]
             )
             waypoints.append(point)
 
         return np.array(waypoints)
-    
+
     def visualize(
         self,
-        ax,
+        ax: Any,
         car_state: CarState,
-        plan: Optional[np.ndarray] = None,
+        plan: np.ndarray | None = None,
         frame: str = "global",
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """
         Visualize planned path on the given axes.
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes
@@ -161,23 +156,23 @@ class TrackPlanner(BasePlanner):
         # Compute plan if not provided
         if plan is None:
             plan = self.plan(car_state)
-        
+
         if len(plan) == 0:
             return
-        
+
         # Transform plan to desired frame
         if frame == "ego":
             plan_plot = np.array([car_state.transform_to_car_frame(point) for point in plan])
         else:
             plan_plot = plan
-        
+
         # Extract visualization parameters
         color = kwargs.pop("color", "green")
         linewidth = kwargs.pop("linewidth", DEFAULT_PLAN_LINEWIDTH)
-        linestyle = kwargs.pop("linestyle", "--")
+        kwargs.pop("linestyle", "--")
         show_waypoints = kwargs.pop("show_waypoints", frame == "global")
         alpha = kwargs.pop("alpha", 0.8)
-        
+
         # Plot plan
         if show_waypoints:
             ax.plot(
@@ -189,7 +184,7 @@ class TrackPlanner(BasePlanner):
                 markersize=4,
                 label="Plan",
                 alpha=alpha,
-                **kwargs
+                **kwargs,
             )
         else:
             ax.plot(
@@ -200,5 +195,5 @@ class TrackPlanner(BasePlanner):
                 linewidth=linewidth,
                 label="Plan",
                 alpha=alpha,
-                **kwargs
+                **kwargs,
             )

@@ -1,16 +1,14 @@
 """LiDAR sensor implementation."""
 
 import numpy as np
-from typing import Dict, Optional
 
+# Import CarState here to avoid circular import
+from simple_autonomous_car.car.car import CarState
+from simple_autonomous_car.frames.frenet import sensor_to_ego
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
 from simple_autonomous_car.maps.perceived_map import PerceivedMap
 from simple_autonomous_car.perception.perception import PerceptionPoints
 from simple_autonomous_car.sensors.base_sensor import BaseSensor
-from simple_autonomous_car.frames.frenet import sensor_to_ego
-
-# Import CarState here to avoid circular import
-from simple_autonomous_car.car.car import CarState
 
 
 class LiDARSensor(BaseSensor):
@@ -46,7 +44,7 @@ class LiDARSensor(BaseSensor):
         angular_resolution: float = 0.1,
         point_noise_std: float = 0.1,
         name: str = "lidar",
-        pose_ego: Optional[np.ndarray] = None,
+        pose_ego: np.ndarray | None = None,
         max_range: float = 50.0,
     ):
         super().__init__(name=name, pose_ego=pose_ego, max_range=max_range)
@@ -55,9 +53,7 @@ class LiDARSensor(BaseSensor):
         self.angular_resolution = angular_resolution
         self.point_noise_std = point_noise_std
 
-    def sense(
-        self, car_state: CarState, environment_data: Optional[Dict] = None
-    ) -> PerceptionPoints:
+    def sense(self, car_state: CarState, environment_data: dict | None = None) -> PerceptionPoints:
         """
         Sense track boundaries and return point cloud.
 
@@ -96,27 +92,20 @@ class LiDARSensor(BaseSensor):
 
         # Add sensor noise
         if len(perception_points_car) > 0:
-            point_noise = np.random.normal(
-                0, self.point_noise_std, perception_points_car.shape
-            )
+            point_noise = np.random.normal(0, self.point_noise_std, perception_points_car.shape)
             perception_points_car = perception_points_car + point_noise
 
         # Transform from sensor frame to ego frame if sensor is not at origin
         if not np.allclose(self.pose_ego, [0.0, 0.0, 0.0]):
             perception_points_ego = np.array(
-                [
-                    sensor_to_ego(point, self.pose_ego)
-                    for point in perception_points_car
-                ]
+                [sensor_to_ego(point, self.pose_ego) for point in perception_points_car]
             )
         else:
             perception_points_ego = perception_points_car
 
         return PerceptionPoints(perception_points_ego, frame="ego")
 
-    def get_map_lines_car_frame(
-        self, car_state: CarState
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def get_map_lines_car_frame(self, car_state: CarState) -> tuple[np.ndarray, np.ndarray]:
         """
         Get ground truth map lines in car frame.
 

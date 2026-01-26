@@ -1,11 +1,11 @@
 """Base costmap class for obstacle representation."""
 
 from abc import ABC, abstractmethod
+from typing import Any
+
 import numpy as np
-from typing import Optional, Tuple, Dict
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.perception.perception import PerceptionPoints
 
 
 class BaseCostmap(ABC):
@@ -50,9 +50,9 @@ class BaseCostmap(ABC):
     @abstractmethod
     def update(
         self,
-        perception_data: Optional[dict] = None,
-        car_state: Optional[CarState] = None,
-        static_obstacles: Optional[np.ndarray] = None,
+        perception_data: dict | None = None,
+        car_state: CarState | None = None,
+        static_obstacles: np.ndarray | None = None,
         frame: str = "global",
     ) -> None:
         """
@@ -74,7 +74,9 @@ class BaseCostmap(ABC):
         pass
 
     @abstractmethod
-    def get_cost(self, position: np.ndarray, frame: str = "global") -> float:
+    def get_cost(
+        self, position: np.ndarray, frame: str = "global", car_state: CarState | None = None
+    ) -> float:
         """
         Get cost at a specific position.
 
@@ -84,6 +86,8 @@ class BaseCostmap(ABC):
             Position as [x, y] array.
         frame : str, default="global"
             Frame of the position ("global" or "ego").
+        car_state : CarState, optional
+            Car state for frame conversion (if needed).
 
         Returns
         -------
@@ -131,23 +135,21 @@ class BaseCostmap(ABC):
         self.enabled = False
 
     def get_visualization_data(
-        self,
-        car_state: Optional[CarState] = None,
-        **kwargs
-    ) -> Dict:
+        self, car_state: CarState | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Get visualization data for this costmap.
-        
+
         This method should be overridden by subclasses to provide
         costmap-specific visualization data (e.g., costmap array, bounds, origin).
-        
+
         Parameters
         ----------
         car_state : CarState, optional
             Current car state (for frame transformations).
         **kwargs
             Additional arguments.
-        
+
         Returns
         -------
         Dict
@@ -159,20 +161,16 @@ class BaseCostmap(ABC):
             "resolution": self.resolution,
             "inflation_radius": self.inflation_radius,
         }
-    
+
     def visualize(
-        self,
-        ax,
-        car_state: Optional[CarState] = None,
-        frame: str = "global",
-        **kwargs
+        self, ax: Any, car_state: CarState | None = None, frame: str = "global", **kwargs: Any
     ) -> None:
         """
         Visualize costmap on the given axes.
-        
+
         This method should be overridden by subclasses to plot
         costmap-specific visualizations.
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes

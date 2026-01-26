@@ -1,13 +1,13 @@
 """PID controller for path following."""
 
+from typing import TYPE_CHECKING, Optional
+
 import numpy as np
-from typing import Dict, Optional
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.perception.perception import PerceptionPoints
-from simple_autonomous_car.control.base_controller import BaseController
 from simple_autonomous_car.constants import DEFAULT_GOAL_TOLERANCE
-from typing import TYPE_CHECKING
+from simple_autonomous_car.control.base_controller import BaseController
+from simple_autonomous_car.perception.perception import PerceptionPoints
 
 if TYPE_CHECKING:
     from simple_autonomous_car.costmap.base_costmap import BaseCostmap
@@ -52,13 +52,13 @@ class PIDController(BaseController):
     def compute_control(
         self,
         car_state: CarState,
-        perception_data: Optional[Dict[str, PerceptionPoints]] = None,
+        perception_data: dict[str, PerceptionPoints] | None = None,
         costmap: Optional["BaseCostmap"] = None,
-        plan: Optional[np.ndarray] = None,
-        goal: Optional[np.ndarray] = None,
-        goal_tolerance: Optional[float] = None,
+        plan: np.ndarray | None = None,
+        goal: np.ndarray | None = None,
+        goal_tolerance: float | None = None,
         dt: float = 0.1,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Compute control using PID algorithm.
 
@@ -100,20 +100,18 @@ class PIDController(BaseController):
             self.last_error = angle_error
 
             steering_rate = (
-                self.kp * angle_error
-                + self.ki * self.integral_error
-                + self.kd * derivative_error
+                self.kp * angle_error + self.ki * self.integral_error + self.kd * derivative_error
             )
             steering_rate = np.clip(steering_rate, -1.0, 1.0)
 
         # Velocity control (adapt based on goal distance)
         target_velocity = self.target_velocity
-        
+
         # Reduce velocity if approaching goal (smooth deceleration)
         if goal is not None:
             distance_to_goal = np.linalg.norm(car_state.position() - goal)
             tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
-            
+
             # If within tolerance, stop completely
             if distance_to_goal <= tolerance:
                 target_velocity = 0.0
@@ -126,17 +124,23 @@ class PIDController(BaseController):
                     # At distance=tolerance, velocity=0; at distance=slow_down_distance, velocity=target_velocity
                     # Map distance from [tolerance, slow_down_distance] to velocity [0, target_velocity]
                     if slow_down_distance > tolerance:
-                        velocity_factor = (distance_to_goal - tolerance) / (slow_down_distance - tolerance)
-                        velocity_factor = max(0.0, min(1.0, velocity_factor))  # Clamp to [0, 1]
-                        target_velocity = self.target_velocity * velocity_factor
+                        velocity_factor = (distance_to_goal - tolerance) / (
+                            slow_down_distance - tolerance
+                        )
+                        velocity_factor = max(  # type: ignore[arg-type]
+                            0.0, min(1.0, velocity_factor)  # type: ignore[arg-type]
+                        )  # Clamp to [0, 1]  # type: ignore[assignment]
+                        target_velocity = self.target_velocity * velocity_factor  # type: ignore[assignment]
                     else:
                         target_velocity = 0.0
                 # Ensure we always slow down when very close (even if above tolerance)
                 if distance_to_goal < tolerance * 2.0:
                     # Extra safety: cap velocity when very close
-                    max_velocity_near_goal = self.target_velocity * (distance_to_goal / (tolerance * 2.0))
-                    target_velocity = min(target_velocity, max_velocity_near_goal)
-        
+                    max_velocity_near_goal = float(
+                        self.target_velocity * (distance_to_goal / (tolerance * 2.0))
+                    )
+                    target_velocity = float(min(target_velocity, max_velocity_near_goal))
+
         velocity_error = target_velocity - car_state.velocity
         acceleration = 0.5 * velocity_error
         acceleration = np.clip(acceleration, -2.0, 2.0)

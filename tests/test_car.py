@@ -1,10 +1,10 @@
 """Tests for car module."""
 
-import numpy as np
-import pytest
-
 import sys
-sys.path.insert(0, 'src')
+
+import numpy as np
+
+sys.path.insert(0, "src")
 
 from simple_autonomous_car.car.car import Car, CarState
 

@@ -7,39 +7,49 @@ Usage:
     python -m simulations.simulation --config path/to/config.py
 """
 
-import sys
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
-
-from simple_autonomous_car.track.track import Track
-from simple_autonomous_car.car.car import Car, CarState
-from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
-from simple_autonomous_car.maps.perceived_map import PerceivedMap
-from simple_autonomous_car.maps.grid_map import GridMap
-from simple_autonomous_car.sensors.lidar_sensor import LiDARSensor
-from simple_autonomous_car.control.pure_pursuit_controller import PurePursuitController
-from simple_autonomous_car.planning.track_planner import TrackPlanner
-from simple_autonomous_car.planning.goal_planner import GoalPlanner
-from simple_autonomous_car.maps.frenet_map import FrenetMap
-from simple_autonomous_car.alerts.track_bounds_alert import TrackBoundsAlert
-from simple_autonomous_car.costmap.grid_costmap import GridCostmap
 
 # Import enhanced visualization
-import sys
 import os
+import sys
+from typing import Any
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+from simple_autonomous_car.alerts.track_bounds_alert import TrackBoundsAlert
+from simple_autonomous_car.car.car import Car, CarState
+from simple_autonomous_car.control.pure_pursuit_controller import PurePursuitController
+from simple_autonomous_car.costmap.grid_costmap import GridCostmap
+from simple_autonomous_car.maps.frenet_map import FrenetMap
+from simple_autonomous_car.maps.grid_map import GridMap
+from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
+from simple_autonomous_car.maps.perceived_map import PerceivedMap
+from simple_autonomous_car.planning.goal_planner import GoalPlanner
+from simple_autonomous_car.planning.track_planner import TrackPlanner
+from simple_autonomous_car.sensors.lidar_sensor import LiDARSensor
+from simple_autonomous_car.track.track import Track
+
 sys.path.insert(0, os.path.dirname(__file__))
-import enhanced_visualization
+import enhanced_visualization  # type: ignore[import-not-found]
 
 # Import configs
 try:
-    from .configs import SIMPLE_TRACK_CONFIG, RACE_TRACK_CONFIG, GRID_MAP_CONFIG
+    from .configs import (  # type: ignore[import-not-found]
+        GRID_MAP_CONFIG,
+        RACE_TRACK_CONFIG,
+        SIMPLE_TRACK_CONFIG,
+    )
 except ImportError:
     # Fallback for direct execution
-    from configs import SIMPLE_TRACK_CONFIG, RACE_TRACK_CONFIG, GRID_MAP_CONFIG
+    from configs import (  # type: ignore[import-not-found,no-redef]
+        GRID_MAP_CONFIG,
+        RACE_TRACK_CONFIG,
+        SIMPLE_TRACK_CONFIG,
+    )
 
 
-def load_config(config_name: str):
+def load_config(config_name: str) -> dict[str, Any]:
     """Load configuration by name or path."""
     # Try built-in configs first
     if config_name == "simple_track" or config_name == "simple":
@@ -51,19 +61,23 @@ def load_config(config_name: str):
     else:
         # Try to load from file
         import importlib.util
+
         spec = importlib.util.spec_from_file_location("config", config_name)
         if spec is None:
-            raise ValueError(f"Config '{config_name}' not found. Use 'simple_track', 'race_track', or 'grid_map', or provide a path to a config file.")
+            raise ValueError(
+                f"Config '{config_name}' not found. Use 'simple_track', 'race_track', or 'grid_map', or provide a path to a config file."
+            )
         module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.CONFIG
+        if spec.loader is not None:
+            spec.loader.exec_module(module)
+        return module.CONFIG  # type: ignore[no-any-return]
 
 
 def run_simulation(config: dict) -> None:
     """Run simulation with provided configuration dictionary."""
     # Determine environment type (track or grid_map)
     is_grid_map = "map" in config and config["map"].get("type") == "grid"
-    
+
     if is_grid_map:
         # Grid map environment
         map_config = config["map"]
@@ -77,7 +91,7 @@ def run_simulation(config: dict) -> None:
         )
         track = None  # No track for grid maps
         goal = np.array(config["goal"]["position"])
-        
+
         # Create car at initial position
         car_config = config["car"]
         car = Car(
@@ -85,23 +99,24 @@ def run_simulation(config: dict) -> None:
                 x=car_config["initial_position"][0],
                 y=car_config["initial_position"][1],
                 heading=car_config["initial_heading"],
-                velocity=car_config["initial_velocity"]
+                velocity=car_config["initial_velocity"],
             ),
             wheelbase=car_config["wheelbase"],
             max_velocity=car_config["max_velocity"],
             max_steering_angle=car_config["max_steering_angle"],
         )
-        
+
         # For grid maps, create ground truth and perceived maps
         from simple_autonomous_car.maps.grid_ground_truth_map import GridGroundTruthMap
-        ground_truth_map = GridGroundTruthMap(grid_map)
+
+        ground_truth_map_grid: Any = GridGroundTruthMap(grid_map)
         perceived_map = PerceivedMap(
-            ground_truth_map,
+            ground_truth_map_grid,  # type: ignore[arg-type]
             position_noise_std=config["perception"]["position_noise_std"],
             orientation_noise_std=config["perception"]["orientation_noise_std"],
             measurement_noise_std=config["perception"]["measurement_noise_std"],
         )
-        
+
     else:
         # Track environment (existing code)
         track_config = config["track"]
@@ -127,10 +142,10 @@ def run_simulation(config: dict) -> None:
             )
         else:
             raise ValueError(f"Unknown track type: {track_config['type']}")
-        
+
         grid_map = None
         goal = None
-        
+
         # Create car
         start_point, start_heading = track.get_point_at_distance(0.0)
         car = Car(
@@ -138,25 +153,26 @@ def run_simulation(config: dict) -> None:
                 x=start_point[0],
                 y=start_point[1],
                 heading=start_heading,
-                velocity=config["car"]["initial_velocity"]
+                velocity=config["car"]["initial_velocity"],
             ),
             wheelbase=config["car"]["wheelbase"],
             max_velocity=config["car"]["max_velocity"],
             max_steering_angle=config["car"]["max_steering_angle"],
         )
-        
+
         # Create maps
-        ground_truth_map = GroundTruthMap(track)
+        ground_truth_map_track: Any = GroundTruthMap(track)
         perceived_map = PerceivedMap(
-            ground_truth_map,
+            ground_truth_map_track,
             position_noise_std=config["perception"]["position_noise_std"],
             orientation_noise_std=config["perception"]["orientation_noise_std"],
             measurement_noise_std=config["perception"]["measurement_noise_std"],
         )
 
     # Create sensors (works for both track and grid map environments)
+    ground_truth_map: Any = ground_truth_map_grid if is_grid_map else ground_truth_map_track
     lidar = LiDARSensor(
-        ground_truth_map=ground_truth_map,
+        ground_truth_map=ground_truth_map,  # type: ignore[arg-type]  # type: ignore[arg-type]
         perceived_map=perceived_map,
         max_range=config["sensor"]["max_range"],
         angular_resolution=config["sensor"]["angular_resolution"],
@@ -172,7 +188,9 @@ def run_simulation(config: dict) -> None:
             resolution=config["planner"]["resolution"],
         )
     else:
-        planner = TrackPlanner(
+        if track is None:
+            raise ValueError("Track is required for TrackPlanner")
+        planner = TrackPlanner(  # type: ignore[assignment]
             track=track,
             lookahead_distance=config["planner"]["lookahead_distance"],
             waypoint_spacing=config["planner"]["waypoint_spacing"],
@@ -190,7 +208,7 @@ def run_simulation(config: dict) -> None:
     # Create costmap
     costmap_config = config["costmap"]
     resolution = max(costmap_config["resolution"], 1.0)
-    
+
     # Create footprint if specified in config
     footprint = None
     footprint_padding = 0.0
@@ -198,6 +216,7 @@ def run_simulation(config: dict) -> None:
         footprint_config = costmap_config["footprint"]
         if footprint_config.get("type") == "rectangular":
             from simple_autonomous_car.footprint import RectangularFootprint
+
             footprint = RectangularFootprint(
                 length=footprint_config.get("length", 4.5),
                 width=footprint_config.get("width", 1.8),
@@ -205,11 +224,12 @@ def run_simulation(config: dict) -> None:
             footprint_padding = footprint_config.get("padding", 0.3)
         elif footprint_config.get("type") == "circular":
             from simple_autonomous_car.footprint import CircularFootprint
-            footprint = CircularFootprint(
+
+            footprint = CircularFootprint(  # type: ignore[assignment]
                 radius=footprint_config.get("radius", 2.5),
             )
             footprint_padding = footprint_config.get("padding", 0.3)
-    
+
     # Create costmap (with footprint if provided, otherwise use inflation_radius)
     costmap = GridCostmap(
         width=costmap_config["width"],
@@ -220,19 +240,21 @@ def run_simulation(config: dict) -> None:
         footprint_padding=footprint_padding,
         frame=costmap_config["frame"],
     )
-    
+
     # Print footprint info if used
     if footprint is not None:
         print(f"✓ Using {footprint.name} for costmap inflation")
         print(f"  Footprint bounding radius: {footprint.get_bounding_radius():.2f}m")
         print(f"  Footprint padding: {footprint_padding:.2f}m")
-        print(f"  Costmap inflation radius: {costmap.inflation_radius:.2f}m (calculated from footprint)")
+        print(
+            f"  Costmap inflation radius: {costmap.inflation_radius:.2f}m (calculated from footprint)"
+        )
     elif costmap_config.get("inflation_radius") is not None:
         print(f"✓ Using manual inflation radius: {costmap.inflation_radius:.2f}m")
 
     # Create alert system (only for track environments)
     alert_system = None
-    if not is_grid_map:
+    if not is_grid_map and track is not None:
         frenet_map = FrenetMap(track)
         alert_system = TrackBoundsAlert(
             frenet_map,
@@ -247,30 +269,61 @@ def run_simulation(config: dict) -> None:
     # Calculate view bounds
     sim_config = config["simulation"]
     horizon = sim_config["horizon"]
-    if is_grid_map:
+    if is_grid_map and grid_map is not None:
         view_x_min = -grid_map.width / 2 - 5
         view_x_max = grid_map.width / 2 + 5
         view_y_min = -grid_map.height / 2 - 5
         view_y_max = grid_map.height / 2 + 5
     else:
-        track_bounds = np.concatenate([track.inner_bound, track.outer_bound])
-        view_x_min = np.min(track_bounds[:, 0]) - 10
-        view_x_max = np.max(track_bounds[:, 0]) + 10
-        view_y_min = np.min(track_bounds[:, 1]) - 10
-        view_y_max = np.max(track_bounds[:, 1]) + 10
+        if track is not None:
+            track_bounds = np.concatenate([track.inner_bound, track.outer_bound])
+            view_x_min = float(np.min(track_bounds[:, 0]) - 10)
+            view_x_max = float(np.max(track_bounds[:, 0]) + 10)
+            view_y_min = float(np.min(track_bounds[:, 1]) - 10)
+            view_y_max = float(np.max(track_bounds[:, 1]) + 10)
     view_bounds = (view_x_min, view_x_max, view_y_min, view_y_max)
 
     # Run simulation
     _run_simulation_loop(
-        car, track, grid_map, goal, ground_truth_map, lidar, planner, controller, costmap,
-        alert_system, sim_config["dt"], sim_config["num_steps"],
-        horizon, view_bounds, axes, cache, is_grid_map,
+        car,
+        track,
+        grid_map,
+        goal,
+        ground_truth_map,
+        lidar,
+        planner,
+        controller,
+        costmap,
+        alert_system,
+        sim_config["dt"],
+        sim_config["num_steps"],
+        horizon,
+        view_bounds,
+        axes,
+        cache,
+        is_grid_map,
     )
 
 
 def _run_simulation_loop(
-    car, track, grid_map, goal, ground_truth_map, lidar, planner, controller, costmap,
-    alert_system, dt, num_steps, horizon, view_bounds, axes, cache, is_grid_map, goal_tolerance=None,
+    car: Any,
+    track: Any,
+    grid_map: Any,
+    goal: Any,
+    ground_truth_map: Any,
+    lidar: Any,
+    planner: Any,
+    controller: Any,
+    costmap: Any,
+    alert_system: Any,
+    dt: float,
+    num_steps: int,
+    horizon: float,
+    view_bounds: Any,
+    axes: Any,
+    cache: Any,
+    is_grid_map: bool,
+    goal_tolerance: float | None = None,
 ) -> None:
     """Run the simulation loop with enhanced visualization."""
     control_history = []
@@ -285,9 +338,11 @@ def _run_simulation_loop(
                 goal_tolerance = 1.0  # Reduced tolerance - controller handles most stopping
             # Only mark as reached if very close AND nearly stopped (controller did its job)
             if distance_to_goal < goal_tolerance and abs(car.state.velocity) < 0.5:
-                print(f"Step {step:3d}: Goal reached! Distance: {distance_to_goal:.2f}m, Velocity: {car.state.velocity:.2f}m/s")
+                print(
+                    f"Step {step:3d}: Goal reached! Distance: {distance_to_goal:.2f}m, Velocity: {car.state.velocity:.2f}m/s"
+                )
                 goal_reached = True
-        
+
         # If goal reached, stop the car and skip planning/control
         if goal_reached:
             # Stop the car (brake to zero velocity, no steering)
@@ -304,15 +359,15 @@ def _run_simulation_loop(
                     "acceleration": -car.state.velocity / dt,  # Maintain zero
                     "steering_rate": 0.0,
                 }
-            
+
             # Store control history
             control["time"] = step * dt
             control["velocity"] = car.state.velocity
             control_history.append(control.copy())
-            
+
             # Update car to stop
             car.update(dt, acceleration=control["acceleration"], steering_rate=0.0)
-            
+
             # No plan needed when stopped
             plan = np.array([]).reshape(0, 2)
             perception_points = None
@@ -325,13 +380,17 @@ def _run_simulation_loop(
             if is_grid_map and grid_map is not None:
                 # For grid maps, use static obstacles directly (more reliable than sensor data)
                 # Combine regular obstacles with boundary obstacles
-                all_obstacles = grid_map.obstacles.copy() if len(grid_map.obstacles) > 0 else np.array([]).reshape(0, 2)
+                all_obstacles = (
+                    grid_map.obstacles.copy()
+                    if len(grid_map.obstacles) > 0
+                    else np.array([]).reshape(0, 2)
+                )
                 boundary_obstacles = grid_map.get_boundary_obstacles(spacing=grid_map.resolution)
                 if len(all_obstacles) > 0:
                     all_obstacles = np.vstack([all_obstacles, boundary_obstacles])
                 else:
                     all_obstacles = boundary_obstacles
-                
+
                 costmap.update(
                     perception_data=perception_data,  # Still include sensor data if available
                     car_state=car.state,
@@ -343,7 +402,9 @@ def _run_simulation_loop(
 
             # 3. Generate plan (use costmap for obstacle avoidance)
             if is_grid_map:
-                plan = planner.plan(car.state, perception_data=perception_data, costmap=costmap, goal=goal)
+                plan = planner.plan(
+                    car.state, perception_data=perception_data, costmap=costmap, goal=goal
+                )
             else:
                 plan = planner.plan(car.state, perception_data=perception_data, costmap=costmap)
 
@@ -369,10 +430,9 @@ def _run_simulation_loop(
                 acceleration=control["acceleration"],
                 steering_rate=control["steering_rate"],
             )
-            
+
             # Get perception point cloud from LiDAR sensor
             perception_points = perception_data.get("lidar") if not is_grid_map else None
-
 
         # 6. Check alerts (only for track environments)
         if not is_grid_map and alert_system is not None and perception_points is not None:
@@ -404,7 +464,9 @@ def _run_simulation_loop(
                 planner=planner,
                 view_bounds=view_bounds,
                 horizon=horizon,
-                control_history=control_history[-50:] if len(control_history) > 50 else control_history,
+                control_history=(
+                    control_history[-50:] if len(control_history) > 50 else control_history
+                ),
                 cache=cache,
                 is_grid_map=is_grid_map,
             )
@@ -423,7 +485,7 @@ def _run_simulation_loop(
     plt.show()
 
 
-def main():
+def main() -> None:
     """Main entry point for simulation."""
     parser = argparse.ArgumentParser(
         description="Run autonomous car simulation with specified configuration"
@@ -432,16 +494,12 @@ def main():
         "config",
         nargs="?",
         default="simple_track",
-        help="Configuration name (simple_track, race_track, grid_map) or path to config file"
+        help="Configuration name (simple_track, race_track, grid_map) or path to config file",
     )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List available configurations"
-    )
-    
+    parser.add_argument("--list", action="store_true", help="List available configurations")
+
     args = parser.parse_args()
-    
+
     if args.list:
         print("Available configurations:")
         print("  - simple_track (or simple)")
@@ -449,7 +507,7 @@ def main():
         print("  - grid_map (or grid) - Grid map with obstacles and goal")
         print("\nOr provide a path to a custom config file.")
         return
-    
+
     try:
         config = load_config(args.config)
         print(f"Running simulation with config: {args.config}")

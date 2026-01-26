@@ -1,10 +1,12 @@
 """Track generation with bounds and centerline."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Tuple, Optional, TYPE_CHECKING
-import matplotlib.pyplot as plt
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
     from simple_autonomous_car.car.car import CarState
 
 
@@ -156,71 +158,71 @@ class Track:
             Track instance
         """
         points = []
-        
+
         # Create a rounded rectangle with very gentle corners
         # Use large radius for corners to avoid sharp turns
         corner_radius = min(length, width) * 0.3  # Large radius for gentle curves
-        
+
         # Calculate dimensions
         straight_length = length - 2 * corner_radius
         straight_width = width - 2 * corner_radius
-        
+
         # Distribute points: more on straights, fewer on gentle curves
         straight_points = int(num_points * 0.35)
         corner_points = int(num_points * 0.15)
-        
+
         # Bottom straight (left to right)
         for i in range(straight_points):
             x = -length / 2 + corner_radius + (i / straight_points) * straight_length
             y = -width / 2
             points.append([x, y])
-        
+
         # Bottom-right corner (gentle curve, max 90 degrees)
         for i in range(corner_points):
             angle = -np.pi / 2 + (i / corner_points) * (np.pi / 2)  # 0 to 90 degrees
             x = length / 2 - corner_radius + corner_radius * np.cos(angle)
             y = -width / 2 + corner_radius + corner_radius * np.sin(angle)
             points.append([x, y])
-        
+
         # Right straight (bottom to top)
         for i in range(straight_points):
             x = length / 2
             y = -width / 2 + corner_radius + (i / straight_points) * straight_width
             points.append([x, y])
-        
+
         # Top-right corner (gentle curve)
         for i in range(corner_points):
             angle = 0 + (i / corner_points) * (np.pi / 2)  # 0 to 90 degrees
             x = length / 2 - corner_radius + corner_radius * np.cos(angle)
             y = width / 2 - corner_radius + corner_radius * np.sin(angle)
             points.append([x, y])
-        
+
         # Top straight (right to left)
         for i in range(straight_points):
             x = length / 2 - corner_radius - (i / straight_points) * straight_length
             y = width / 2
             points.append([x, y])
-        
+
         # Top-left corner (gentle curve)
         for i in range(corner_points):
             angle = np.pi / 2 + (i / corner_points) * (np.pi / 2)  # 90 to 180 degrees
             x = -length / 2 + corner_radius + corner_radius * np.cos(angle)
             y = width / 2 - corner_radius + corner_radius * np.sin(angle)
             points.append([x, y])
-        
+
         # Left straight (top to bottom)
         for i in range(straight_points):
             x = -length / 2
             y = width / 2 - corner_radius - (i / straight_points) * straight_width
             points.append([x, y])
-        
+
         # Bottom-left corner (gentle curve) - close the loop
         for i in range(corner_points):
             angle = np.pi + (i / corner_points) * (np.pi / 2)  # 180 to 270 degrees
             x = -length / 2 + corner_radius + corner_radius * np.cos(angle)
             y = -width / 2 + corner_radius + corner_radius * np.sin(angle)
             points.append([x, y])
-        
+
         return cls(np.array(points), track_width=track_width)
 
     @classmethod
@@ -245,29 +247,29 @@ class Track:
             Track instance
         """
         points = []
-        
+
         # Use parametric equations for a lemniscate of Bernoulli (figure-8 curve)
         # Parametric form: x = a * sin(t) / (1 + cos^2(t)), y = a * sin(t) * cos(t) / (1 + cos^2(t))
         # This creates a smooth, symmetric figure-8
-        
+
         # Generate parameter t from 0 to 2*pi
         t_values = np.linspace(0, 2 * np.pi, num_points)
-        
+
         # Scale factor for the lemniscate (adjust to match desired size)
         a = size / 2.5  # Adjusted for better size control
-        
+
         for t in t_values:
             # Lemniscate parametric equations
             # Denominator ensures smooth curve and proper figure-8 shape
             denom = 1 + np.cos(t) ** 2
             x = a * np.sin(t) / denom
             y = a * np.sin(t) * np.cos(t) / denom
-            
+
             points.append([x, y])
-        
+
         return cls(np.array(points), track_width=track_width)
 
-    def get_point_at_distance(self, distance: float) -> Tuple[np.ndarray, float]:
+    def get_point_at_distance(self, distance: float) -> tuple[np.ndarray, float]:
         """
         Get point on centerline at given distance along track.
 
@@ -286,7 +288,8 @@ class Track:
         distance = distance % total_length  # Wrap around
 
         # Find segment
-        idx = np.searchsorted(cumulative_distances, distance)
+        idx_int = np.searchsorted(cumulative_distances, distance)
+        idx: int = int(idx_int)
         if idx == 0:
             idx = 1
         if idx >= len(self.centerline):
@@ -300,26 +303,24 @@ class Track:
         else:
             t = 0.0
 
-        point = self.centerline[idx - 1] + t * (
-            self.centerline[idx] - self.centerline[idx - 1]
-        )
+        point = self.centerline[idx - 1] + t * (self.centerline[idx] - self.centerline[idx - 1])
 
         # Calculate heading
         direction = self.centerline[idx] - self.centerline[idx - 1]
         heading = np.arctan2(direction[1], direction[0])
 
         return point, heading
-    
+
     def visualize(
         self,
-        ax,
+        ax: "Axes",
         car_state: Optional["CarState"] = None,
         frame: str = "global",
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """
         Visualize track boundaries on the given axes.
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes
@@ -343,21 +344,29 @@ class Track:
         bounds_color = kwargs.pop("bounds_color", "k")
         bounds_linewidth = kwargs.pop("bounds_linewidth", 2.5)
         horizon = kwargs.pop("horizon", None)
-        
+
         if frame == "ego" and car_state is not None:
             # Transform track to ego frame
             if show_bounds:
-                inner_bound_ego = np.array([car_state.transform_to_car_frame(point) for point in self.inner_bound])
-                outer_bound_ego = np.array([car_state.transform_to_car_frame(point) for point in self.outer_bound])
-                
+                inner_bound_ego = np.array(
+                    [car_state.transform_to_car_frame(point) for point in self.inner_bound]
+                )
+                outer_bound_ego = np.array(
+                    [car_state.transform_to_car_frame(point) for point in self.outer_bound]
+                )
+
                 # Filter points within horizon for performance
                 if horizon is not None:
-                    mask_inner = (np.abs(inner_bound_ego[:, 0]) < horizon * 1.2) & (np.abs(inner_bound_ego[:, 1]) < horizon * 1.2)
-                    mask_outer = (np.abs(outer_bound_ego[:, 0]) < horizon * 1.2) & (np.abs(outer_bound_ego[:, 1]) < horizon * 1.2)
+                    mask_inner = (np.abs(inner_bound_ego[:, 0]) < horizon * 1.2) & (
+                        np.abs(inner_bound_ego[:, 1]) < horizon * 1.2
+                    )
+                    mask_outer = (np.abs(outer_bound_ego[:, 0]) < horizon * 1.2) & (
+                        np.abs(outer_bound_ego[:, 1]) < horizon * 1.2
+                    )
                 else:
                     mask_inner = np.ones(len(inner_bound_ego), dtype=bool)
                     mask_outer = np.ones(len(outer_bound_ego), dtype=bool)
-                
+
                 if np.any(mask_inner):
                     ax.plot(
                         inner_bound_ego[mask_inner, 0],
@@ -368,7 +377,7 @@ class Track:
                         label="Map",
                         alpha=0.9,
                         zorder=1,
-                        **kwargs
+                        **kwargs,
                     )
                 if np.any(mask_outer):
                     ax.plot(
@@ -379,16 +388,20 @@ class Track:
                         linewidth=bounds_linewidth,
                         alpha=0.9,
                         zorder=1,
-                        **kwargs
+                        **kwargs,
                     )
-            
+
             if show_centerline:
-                centerline_ego = np.array([car_state.transform_to_car_frame(point) for point in self.centerline])
+                centerline_ego = np.array(
+                    [car_state.transform_to_car_frame(point) for point in self.centerline]
+                )
                 if horizon is not None:
-                    mask = (np.abs(centerline_ego[:, 0]) < horizon * 1.2) & (np.abs(centerline_ego[:, 1]) < horizon * 1.2)
+                    mask = (np.abs(centerline_ego[:, 0]) < horizon * 1.2) & (
+                        np.abs(centerline_ego[:, 1]) < horizon * 1.2
+                    )
                 else:
                     mask = np.ones(len(centerline_ego), dtype=bool)
-                
+
                 if np.any(mask):
                     ax.plot(
                         centerline_ego[mask, 0],
@@ -398,7 +411,7 @@ class Track:
                         linewidth=1.5,
                         alpha=0.5,
                         label="Centerline",
-                        **kwargs
+                        **kwargs,
                     )
         else:
             # Global frame
@@ -410,7 +423,7 @@ class Track:
                     color=bounds_color,
                     linewidth=bounds_linewidth,
                     label="Track Bounds",
-                    **kwargs
+                    **kwargs,
                 )
                 ax.plot(
                     self.outer_bound[:, 0],
@@ -418,9 +431,9 @@ class Track:
                     "-",
                     color=bounds_color,
                     linewidth=bounds_linewidth,
-                    **kwargs
+                    **kwargs,
                 )
-            
+
             if show_centerline:
                 ax.plot(
                     self.centerline[:, 0],
@@ -430,10 +443,10 @@ class Track:
                     linewidth=1.5,
                     alpha=0.5,
                     label="Centerline",
-                    **kwargs
+                    **kwargs,
                 )
 
-    def get_bounds_at_point(self, point: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def get_bounds_at_point(self, point: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Get inner and outer boundary points closest to given point.
 

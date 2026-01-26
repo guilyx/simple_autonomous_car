@@ -1,8 +1,7 @@
 """Controller-specific visualization utilities."""
 
-import numpy as np
 import matplotlib.pyplot as plt
-from typing import Optional, Dict, List, Tuple
+import numpy as np
 
 from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.control.pure_pursuit_controller import PurePursuitController
@@ -12,7 +11,7 @@ def plot_pure_pursuit_state(
     controller: PurePursuitController,
     car_state: CarState,
     plan: np.ndarray,
-    ax: Optional[plt.Axes] = None,
+    ax: plt.Axes | None = None,
     show_curvature: bool = True,
     show_steering_circle: bool = True,
     show_lookahead: bool = True,
@@ -92,7 +91,9 @@ def plot_pure_pursuit_state(
         closest_idx = np.argmin(distances_to_path)
 
         # Calculate adaptive lookahead
-        adaptive_lookahead = controller.lookahead_distance + controller.lookahead_gain * car_state.velocity
+        adaptive_lookahead = (
+            controller.lookahead_distance + controller.lookahead_gain * car_state.velocity
+        )
 
         # Find point at lookahead distance ahead
         path_distances = np.zeros(len(plan))
@@ -187,7 +188,7 @@ def plot_pure_pursuit_state(
                         [plan[i][0], plan[i + 1][0]],
                         [plan[i][1], plan[i + 1][1]],
                         "-",
-                        color=plt.cm.RdYlGn(1.0 - color_intensity),
+                        color=plt.cm.RdYlGn(1.0 - color_intensity),  # type: ignore[attr-defined]
                         linewidth=4,
                         alpha=0.6,
                     )
@@ -219,8 +220,8 @@ def plot_pure_pursuit_state(
 
 
 def plot_control_history(
-    control_history: List[Dict],
-    ax: Optional[plt.Axes] = None,
+    control_history: list[dict],
+    ax: plt.Axes | None = None,
     show_steering: bool = True,
     show_acceleration: bool = True,
     show_velocity: bool = True,
@@ -248,7 +249,7 @@ def plot_control_history(
 
     Examples
     --------
-    >>> history = [{'steering_rate': 0.1, 'acceleration': 0.5, 'velocity': 10.0, 'time': i*0.1} 
+    >>> history = [{'steering_rate': 0.1, 'acceleration': 0.5, 'velocity': 10.0, 'time': i*0.1}
     ...            for i in range(100)]
     >>> ax = plot_control_history(history)
     >>> plt.show()

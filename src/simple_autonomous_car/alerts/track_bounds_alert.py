@@ -1,12 +1,10 @@
 """Track bounds alert system - detects when perceived lines are too far from map lines."""
 
 import numpy as np
-from typing import Dict, List, Optional, Tuple
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.perception.perception import PerceptionPoints
 from simple_autonomous_car.maps.frenet_map import FrenetMap
-from simple_autonomous_car.frames.frenet import FrenetFrame
+from simple_autonomous_car.perception.perception import PerceptionPoints
 
 
 class TrackBoundsAlert:
@@ -92,13 +90,13 @@ class TrackBoundsAlert:
         self.warning_threshold = warning_threshold
         self.critical_threshold = critical_threshold
         self.lookahead_distance = lookahead_distance
-        self.alert_history: List[Dict] = []
+        self.alert_history: list[dict] = []
 
     def check(
         self,
         perception_points: PerceptionPoints,
         car_state: CarState,
-    ) -> Dict:
+    ) -> dict:
         """
         Check for track bounds violations.
 
@@ -158,14 +156,14 @@ class TrackBoundsAlert:
                 # Only include valid points (s >= 0)
                 if s >= 0:
                     frenet_points.append([s, d])
-            except (ValueError, RuntimeError) as e:
+            except (ValueError, RuntimeError):
                 # Skip points that can't be converted (e.g., outside track)
                 continue
 
         if len(frenet_points) == 0:
             return self._empty_result()
 
-        frenet_points = np.array(frenet_points)
+        frenet_points = np.asarray(frenet_points, dtype=np.float64)  # type: ignore[assignment]
 
         # Get current position in Frenet frame
         car_pos_global = car_state.position()
@@ -177,8 +175,8 @@ class TrackBoundsAlert:
 
         # Check points within lookahead distance (ahead of car)
         s_end = s_car + self.lookahead_distance
-        mask = (frenet_points[:, 0] >= s_car) & (frenet_points[:, 0] <= s_end)
-        relevant_points = frenet_points[mask]
+        mask = (frenet_points[:, 0] >= s_car) & (frenet_points[:, 0] <= s_end)  # type: ignore[call-overload]
+        relevant_points = np.asarray(frenet_points[mask], dtype=np.float64)  # type: ignore[call-overload]
 
         if len(relevant_points) == 0:
             return self._empty_result()
@@ -211,7 +209,7 @@ class TrackBoundsAlert:
             if deviation > self.warning_threshold:
                 alert_points.append({"s": s, "d": d_perceived, "deviation": deviation})
 
-        deviations = np.array(deviations)
+        deviations = np.asarray(deviations, dtype=np.float64)  # type: ignore[assignment]
 
         max_deviation = np.max(deviations) if len(deviations) > 0 else 0.0
         mean_deviation = np.mean(deviations) if len(deviations) > 0 else 0.0
@@ -239,7 +237,7 @@ class TrackBoundsAlert:
 
         return result
 
-    def _empty_result(self) -> Dict:
+    def _empty_result(self) -> dict:
         """
         Return empty result dictionary.
 
@@ -257,7 +255,7 @@ class TrackBoundsAlert:
             "alert_points": [],
         }
 
-    def get_recent_alerts(self, num_recent: int = 10) -> List[Dict]:
+    def get_recent_alerts(self, num_recent: int = 10) -> list[dict]:
         """
         Get recent alert history.
 

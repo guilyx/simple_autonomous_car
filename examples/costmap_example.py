@@ -1,20 +1,21 @@
 """Example demonstrating costmap usage with planners and controllers."""
 
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '../src')
+
+import matplotlib.pyplot as plt
+
+sys.path.insert(0, "../src")
 
 from simple_autonomous_car import (
-    Track,
     Car,
     CarState,
-    GroundTruthMap,
-    PerceivedMap,
-    LiDARSensor,
-    PurePursuitController,
-    TrackPlanner,
     GridCostmap,
+    GroundTruthMap,
+    LiDARSensor,
+    PerceivedMap,
+    PurePursuitController,
+    Track,
+    TrackPlanner,
 )
 from simple_autonomous_car.visualization import plot_car
 
@@ -28,7 +29,11 @@ def example_costmap_basic():
     # Create track and car
     track = Track.create_simple_track(length=80.0, width=40.0, track_width=5.0)
     start_point, start_heading = track.get_point_at_distance(0.0)
-    car = Car(initial_state=CarState(x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0))
+    car = Car(
+        initial_state=CarState(
+            x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0
+        )
+    )
 
     # Create maps and sensor
     ground_truth_map = GroundTruthMap(track)
@@ -71,7 +76,11 @@ def example_costmap_with_planner():
     # Setup
     track = Track.create_simple_track(length=80.0, width=40.0, track_width=5.0)
     start_point, start_heading = track.get_point_at_distance(0.0)
-    car = Car(initial_state=CarState(x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0))
+    car = Car(
+        initial_state=CarState(
+            x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0
+        )
+    )
 
     ground_truth_map = GroundTruthMap(track)
     perceived_map = PerceivedMap(ground_truth_map)
@@ -101,7 +110,9 @@ def example_costmap_with_planner():
     fig, ax = plt.subplots(figsize=(12, 10))
     track.visualize(ax=ax, frame="global")
     costmap.visualize(ax=ax, car_state=car.state, frame="global")
-    planner.visualize(ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan")
+    planner.visualize(
+        ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan"
+    )
     plot_car(car, ax=ax, show_heading=True)
     plt.title("Costmap with Planned Path")
     plt.legend()
@@ -119,7 +130,11 @@ def example_costmap_with_controller():
     # Setup
     track = Track.create_simple_track(length=80.0, width=40.0, track_width=5.0)
     start_point, start_heading = track.get_point_at_distance(0.0)
-    car = Car(initial_state=CarState(x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0))
+    car = Car(
+        initial_state=CarState(
+            x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0
+        )
+    )
 
     ground_truth_map = GroundTruthMap(track)
     perceived_map = PerceivedMap(ground_truth_map)
@@ -164,8 +179,10 @@ def example_costmap_with_controller():
         car.update(dt, acceleration=control["acceleration"], steering_rate=control["steering_rate"])
 
         if step % 5 == 0:
-            print(f"Step {step}: Velocity={car.state.velocity:.2f} m/s, "
-                  f"Acceleration={control['acceleration']:.2f} m/s²")
+            print(
+                f"Step {step}: Velocity={car.state.velocity:.2f} m/s, "
+                f"Acceleration={control['acceleration']:.2f} m/s²"
+            )
 
     # Final visualization
     perception_data = car.sense_all(environment_data={"ground_truth_map": ground_truth_map})
@@ -175,7 +192,9 @@ def example_costmap_with_controller():
     fig, ax = plt.subplots(figsize=(12, 10))
     track.visualize(ax=ax, frame="global")
     costmap.visualize(ax=ax, car_state=car.state, frame="global")
-    planner.visualize(ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan")
+    planner.visualize(
+        ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan"
+    )
     plot_car(car, ax=ax, show_heading=True)
     plt.title("Costmap with Controller (Final State)")
     plt.legend()
