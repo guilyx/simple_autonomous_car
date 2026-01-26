@@ -54,22 +54,26 @@ jobs:
         if: runner.os == 'Windows'
       - name: Install dependencies
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            $env:PATH += ";$env:USERPROFILE\.cargo\bin"
-            uv sync --dev
-          else
-            source $HOME/.cargo/env
-            uv sync --dev
-          fi
+          source $HOME/.cargo/env
+          uv sync --dev
+        if: runner.os != 'Windows'
+      - name: Install dependencies (Windows)
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.cargo\bin"
+          uv sync --dev
+        shell: pwsh
+        if: runner.os == 'Windows'
       - name: Run tests
         run: |
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            $env:PATH += ";$env:USERPROFILE\.cargo\bin"
-            uv run pytest --cov=src --cov-report=xml
-          else
-            source $HOME/.cargo/env
-            uv run pytest --cov=src --cov-report=xml
-          fi
+          source $HOME/.cargo/env
+          uv run pytest --cov=src --cov-report=xml
+        if: runner.os != 'Windows'
+      - name: Run tests (Windows)
+        run: |
+          $env:PATH += ";$env:USERPROFILE\.cargo\bin"
+          uv run pytest --cov=src --cov-report=xml
+        shell: pwsh
+        if: runner.os == 'Windows'
       - name: Upload coverage
         uses: codecov/codecov-action@v3
         with:
