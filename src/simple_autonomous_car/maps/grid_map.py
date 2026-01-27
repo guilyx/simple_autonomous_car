@@ -325,7 +325,11 @@ class GridMap:
                 )
             else:
                 circle = patches.Circle(
-                    obstacle, self.obstacle_size, color=obstacle_color, alpha=alpha, **kwargs
+                    (float(obstacle[0]), float(obstacle[1])),
+                    self.obstacle_size,
+                    color=obstacle_color,
+                    alpha=alpha,
+                    **kwargs,
                 )
             ax.add_patch(circle)
 

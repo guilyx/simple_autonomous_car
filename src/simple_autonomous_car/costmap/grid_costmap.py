@@ -317,7 +317,7 @@ class GridCostmap(BaseCostmap):
         col_start = max(0, center_col - half_size_pixels)
         col_end = min(self.width_pixels, center_col + half_size_pixels)
 
-        return self.costmap[row_start:row_end, col_start:col_end].copy()
+        return np.array(self.costmap[row_start:row_end, col_start:col_end].copy(), dtype=np.float64)
 
     def get_visualization_data(
         self, car_state: CarState | None = None, **kwargs: Any
@@ -367,7 +367,7 @@ class GridCostmap(BaseCostmap):
         np.ndarray
             Full 2D costmap array.
         """
-        return self.costmap.copy()
+        return np.array(self.costmap.copy(), dtype=np.float64)
 
     def visualize(
         self, ax: Any, car_state: CarState | None = None, frame: str = "global", **kwargs: Any

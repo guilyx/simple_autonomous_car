@@ -116,11 +116,11 @@ class KalmanFilter(BaseFilter):
 
     def get_state(self) -> np.ndarray:
         """Get current state estimate."""
-        return self.state.copy()
+        return np.array(self.state.copy(), dtype=np.float64)
 
     def get_covariance(self) -> np.ndarray:
         """Get current state covariance."""
-        return self.covariance.copy()
+        return np.array(self.covariance.copy(), dtype=np.float64)
 
     def reset(
         self, initial_state: np.ndarray, initial_covariance: np.ndarray | None = None
