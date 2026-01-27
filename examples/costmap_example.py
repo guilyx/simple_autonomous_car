@@ -58,8 +58,9 @@ def example_costmap_basic():
 
     # Visualize
     fig, ax = plt.subplots(figsize=(12, 10))
-    plot_track(track, ax=ax)
-    plot_costmap(costmap, car.state, ax=ax, show_car=True)
+    track.visualize(ax=ax, frame="global")
+    costmap.visualize(ax=ax, car_state=car.state, frame="global")
+    plot_car(car, ax=ax, show_heading=True)
     plt.title("Costmap from Perception Data")
     plt.legend()
     plt.show()
