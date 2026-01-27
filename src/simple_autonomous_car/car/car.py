@@ -1,12 +1,13 @@
 """Car model with state and reference frame handling."""
 
-import numpy as np
 from dataclasses import dataclass
-from typing import Tuple, List, Dict, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
+
+import numpy as np
 
 if TYPE_CHECKING:
-    from simple_autonomous_car.sensors.base_sensor import BaseSensor
     from simple_autonomous_car.perception.perception import PerceptionPoints
+    from simple_autonomous_car.sensors.base_sensor import BaseSensor
 
 
 @dataclass
@@ -31,15 +32,17 @@ class CarState:
 
     def transform_to_car_frame(self, point: np.ndarray) -> np.ndarray:
         """Transform point from world frame to car frame."""
-        R = self.rotation_matrix()
+        rotation = self.rotation_matrix()
         translated = point - self.position()
-        return R @ translated
+        result = rotation @ translated
+        return np.asarray(result, dtype=np.float64)
 
     def transform_to_world_frame(self, point: np.ndarray) -> np.ndarray:
         """Transform point from car frame to world frame."""
-        R = self.rotation_matrix().T  # Inverse rotation
-        rotated = R @ point
-        return rotated + self.position()
+        rotation = self.rotation_matrix().T  # Inverse rotation
+        rotated = rotation @ point
+        result = rotated + self.position()
+        return np.asarray(result, dtype=np.float64)
 
 
 class Car:
@@ -88,14 +91,12 @@ class Car:
             Maximum steering angle in radians (30 degrees).
         """
         self.state = (
-            initial_state
-            if initial_state is not None
-            else CarState(x=0.0, y=0.0, heading=0.0)
+            initial_state if initial_state is not None else CarState(x=0.0, y=0.0, heading=0.0)
         )
         self.wheelbase = wheelbase
         self.max_velocity = max_velocity
         self.max_steering_angle = max_steering_angle
-        self.sensors: List["BaseSensor"] = []
+        self.sensors: list[BaseSensor] = []
 
     def add_sensor(self, sensor: "BaseSensor") -> None:
         """
@@ -147,7 +148,7 @@ class Car:
                 return sensor
         return None
 
-    def sense_all(self, environment_data: Optional[Dict] = None) -> Dict[str, "PerceptionPoints"]:
+    def sense_all(self, environment_data: dict | None = None) -> dict[str, "PerceptionPoints"]:
         """
         Get perception data from all enabled sensors.
 
@@ -162,12 +163,12 @@ class Car:
             Dictionary mapping sensor names to their perception data.
         """
         # Import here to avoid circular import
-        from simple_autonomous_car.sensors.base_sensor import BaseSensor
-        
+
         perception_data = {}
         for sensor in self.sensors:
             if sensor.is_enabled():
-                perception_data[sensor.name] = sensor.sense(self.state, environment_data)
+                env_data = environment_data if environment_data is not None else {}
+                perception_data[sensor.name] = sensor.sense(self.state, env_data)
         return perception_data
 
     def update(self, dt: float, acceleration: float = 0.0, steering_rate: float = 0.0) -> None:

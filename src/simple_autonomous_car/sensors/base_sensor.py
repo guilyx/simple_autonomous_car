@@ -1,8 +1,9 @@
 """Base sensor class for modular sensor system."""
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
 import numpy as np
-from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from simple_autonomous_car.car.car import CarState
@@ -32,7 +33,7 @@ class BaseSensor(ABC):
     def __init__(
         self,
         name: str = "sensor",
-        pose_ego: Optional[np.ndarray] = None,
+        pose_ego: np.ndarray | None = None,
         max_range: float = 50.0,
         enabled: bool = True,
     ):
@@ -52,16 +53,12 @@ class BaseSensor(ABC):
             Whether the sensor is enabled. Disabled sensors return empty data.
         """
         self.name = name
-        self.pose_ego = (
-            pose_ego if pose_ego is not None else np.array([0.0, 0.0, 0.0])
-        )
+        self.pose_ego = pose_ego if pose_ego is not None else np.array([0.0, 0.0, 0.0])
         self.max_range = max_range
         self.enabled = enabled
 
     @abstractmethod
-    def sense(
-        self, car_state: "CarState", environment_data: dict
-    ) -> PerceptionPoints:
+    def sense(self, car_state: "CarState", environment_data: dict) -> PerceptionPoints:
         """
         Sense the environment and return perception data.
 

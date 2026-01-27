@@ -1,13 +1,13 @@
 """Perceived map with noise and reference frame transformations."""
 
+from typing import TYPE_CHECKING
+
 import numpy as np
-from typing import Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from simple_autonomous_car.car.car import CarState
 
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
-from simple_autonomous_car.maps.grid_ground_truth_map import GridGroundTruthMap
 
 
 class PerceivedMap:
@@ -35,7 +35,7 @@ class PerceivedMap:
         self.measurement_noise_std = measurement_noise_std
 
         # Perceived car state (with localization errors)
-        self.perceived_car_state: "CarState | None" = None
+        self.perceived_car_state: CarState | None = None
 
     def update_perceived_state(self, true_car_state: "CarState") -> None:
         """
@@ -55,6 +55,7 @@ class PerceivedMap:
 
         # Import here to avoid circular import
         from simple_autonomous_car.car.car import CarState
+
         self.perceived_car_state = CarState(
             x=perceived_x,
             y=perceived_y,
@@ -65,7 +66,7 @@ class PerceivedMap:
 
     def get_perceived_segments(
         self, horizon: float, fov: float = 2 * np.pi
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Get perceived track segments in perceived car frame.
 
@@ -80,13 +81,11 @@ class PerceivedMap:
             raise ValueError("Perceived car state not set. Call update_perceived_state first.")
 
         # Get visible segments from ground truth in world frame
-        visible_centerline, visible_inner, visible_outer = (
-            self.ground_truth.get_visible_segments(
-                self.perceived_car_state.position(),
-                self.perceived_car_state.heading,
-                horizon,
-                fov,
-            )
+        visible_centerline, visible_inner, visible_outer = self.ground_truth.get_visible_segments(
+            self.perceived_car_state.position(),
+            self.perceived_car_state.heading,
+            horizon,
+            fov,
         )
 
         if len(visible_centerline) == 0:
@@ -97,9 +96,7 @@ class PerceivedMap:
             )
 
         # Add measurement noise
-        centerline_noise = np.random.normal(
-            0, self.measurement_noise_std, visible_centerline.shape
-        )
+        centerline_noise = np.random.normal(0, self.measurement_noise_std, visible_centerline.shape)
         inner_noise = np.random.normal(0, self.measurement_noise_std, visible_inner.shape)
         outer_noise = np.random.normal(0, self.measurement_noise_std, visible_outer.shape)
 
@@ -115,17 +112,23 @@ class PerceivedMap:
             ]
         )
         perceived_inner_car = np.array(
-            [self.perceived_car_state.transform_to_car_frame(point) for point in perceived_inner_world]
+            [
+                self.perceived_car_state.transform_to_car_frame(point)
+                for point in perceived_inner_world
+            ]
         )
         perceived_outer_car = np.array(
-            [self.perceived_car_state.transform_to_car_frame(point) for point in perceived_outer_world]
+            [
+                self.perceived_car_state.transform_to_car_frame(point)
+                for point in perceived_outer_world
+            ]
         )
 
         return perceived_centerline_car, perceived_inner_car, perceived_outer_car
 
     def get_perceived_segments_world_frame(
         self, horizon: float, fov: float = 2 * np.pi
-    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Get perceived track segments in world frame.
 
@@ -140,13 +143,11 @@ class PerceivedMap:
             raise ValueError("Perceived car state not set. Call update_perceived_state first.")
 
         # Get visible segments from ground truth
-        visible_centerline, visible_inner, visible_outer = (
-            self.ground_truth.get_visible_segments(
-                self.perceived_car_state.position(),
-                self.perceived_car_state.heading,
-                horizon,
-                fov,
-            )
+        visible_centerline, visible_inner, visible_outer = self.ground_truth.get_visible_segments(
+            self.perceived_car_state.position(),
+            self.perceived_car_state.heading,
+            horizon,
+            fov,
         )
 
         if len(visible_centerline) == 0:
@@ -157,9 +158,7 @@ class PerceivedMap:
             )
 
         # Add measurement noise
-        centerline_noise = np.random.normal(
-            0, self.measurement_noise_std, visible_centerline.shape
-        )
+        centerline_noise = np.random.normal(0, self.measurement_noise_std, visible_centerline.shape)
         inner_noise = np.random.normal(0, self.measurement_noise_std, visible_inner.shape)
         outer_noise = np.random.normal(0, self.measurement_noise_std, visible_outer.shape)
 

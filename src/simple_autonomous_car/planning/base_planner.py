@@ -1,13 +1,13 @@
 """Base planner class for path planning."""
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Optional, Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from simple_autonomous_car.car.car import CarState
 
-from simple_autonomous_car.perception.perception import PerceptionPoints
 
 if TYPE_CHECKING:
     from simple_autonomous_car.costmap.base_costmap import BaseCostmap
@@ -46,9 +46,9 @@ class BasePlanner(ABC):
     def plan(
         self,
         car_state: "CarState",
-        perception_data: Optional[dict] = None,
+        perception_data: dict | None = None,
         costmap: Optional["BaseCostmap"] = None,
-        goal: Optional[np.ndarray] = None,
+        goal: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Generate a plan (path) for the car to follow.
@@ -85,18 +85,15 @@ class BasePlanner(ABC):
         self.enabled = False
 
     def get_visualization_data(
-        self,
-        car_state: "CarState",
-        plan: Optional[np.ndarray] = None,
-        **kwargs
-    ) -> Dict:
+        self, car_state: "CarState", plan: np.ndarray | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Get visualization data for this planner.
-        
+
         This method should be overridden by subclasses to provide
         planner-specific visualization data (e.g., waypoints, path segments,
         planning metadata).
-        
+
         Parameters
         ----------
         car_state : CarState
@@ -105,7 +102,7 @@ class BasePlanner(ABC):
             Planned path (if already computed).
         **kwargs
             Additional arguments.
-        
+
         Returns
         -------
         Dict
@@ -116,21 +113,21 @@ class BasePlanner(ABC):
         if plan is not None:
             return {"plan": plan}
         return {}
-    
+
     def visualize(
         self,
-        ax,
+        ax: Any,
         car_state: "CarState",
-        plan: Optional[np.ndarray] = None,
+        plan: np.ndarray | None = None,
         frame: str = "global",
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """
         Visualize planned path on the given axes.
-        
+
         This method should be overridden by subclasses to plot
         planner-specific visualizations (e.g., waypoints, path segments).
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes
@@ -151,14 +148,14 @@ class BasePlanner(ABC):
                 plan_plot = np.array([car_state.transform_to_car_frame(point) for point in plan])
             else:
                 plan_plot = plan
-            
+
             # Extract visualization parameters
             color = kwargs.pop("color", "green")
             linewidth = kwargs.pop("linewidth", 2.5)
             linestyle = kwargs.pop("linestyle", "--")
             show_waypoints = kwargs.pop("show_waypoints", frame == "global")
             alpha = kwargs.pop("alpha", 0.8)
-            
+
             # Plot plan
             if show_waypoints:
                 ax.plot(
@@ -171,7 +168,7 @@ class BasePlanner(ABC):
                     markersize=4,
                     label="Plan",
                     alpha=alpha,
-                    **kwargs
+                    **kwargs,
                 )
             else:
                 ax.plot(
@@ -183,5 +180,5 @@ class BasePlanner(ABC):
                     linestyle=linestyle,
                     label="Plan",
                     alpha=alpha,
-                    **kwargs
+                    **kwargs,
                 )

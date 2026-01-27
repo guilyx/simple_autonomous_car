@@ -1,24 +1,25 @@
 """Example demonstrating easy-to-use visualization functions."""
 
-import numpy as np
-import matplotlib.pyplot as plt
 import sys
-sys.path.insert(0, '../src')
+
+import matplotlib.pyplot as plt
+
+sys.path.insert(0, "../src")
 
 from simple_autonomous_car import (
-    Track,
     Car,
     CarState,
-    GroundTruthMap,
-    PerceivedMap,
-    LiDARSensor,
-    PurePursuitController,
-    TrackPlanner,
     FrenetMap,
+    GroundTruthMap,
+    LiDARSensor,
+    PerceivedMap,
+    PurePursuitController,
+    Track,
+    TrackPlanner,
 )
 from simple_autonomous_car.visualization import (
-    plot_perception,
     plot_car,
+    plot_perception,
     plot_pure_pursuit_state,
 )
 
@@ -34,7 +35,11 @@ def example_basic_visualizations():
 
     # Create car
     start_point, start_heading = track.get_point_at_distance(0.0)
-    car = Car(initial_state=CarState(x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0))
+    car = Car(
+        initial_state=CarState(
+            x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0
+        )
+    )
 
     # Create maps and sensor
     ground_truth_map = GroundTruthMap(track)
@@ -60,7 +65,9 @@ def example_basic_visualizations():
     # Example 2: Plot track with plan
     fig, ax = plt.subplots(figsize=(10, 8))
     track.visualize(ax=ax, frame="global")
-    planner.visualize(ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan")
+    planner.visualize(
+        ax=ax, car_state=car.state, plan=plan, frame="global", color="green", label="Plan"
+    )
     plt.title("Example 2: Track + Plan")
     plt.legend()
     plt.show()
@@ -78,7 +85,13 @@ def example_basic_visualizations():
     # Example 4: Plot controller state with curvature
     fig, ax = plt.subplots(figsize=(12, 10))
     track.visualize(ax=ax, frame="global")
-    controller.visualize(ax=ax, car_state=car.state, plan=plan, frame="global", wheelbase=getattr(car, "wheelbase", 2.5))
+    controller.visualize(
+        ax=ax,
+        car_state=car.state,
+        plan=plan,
+        frame="global",
+        wheelbase=getattr(car, "wheelbase", 2.5),
+    )
     plot_car(car, ax=ax, frame="global")
     plt.title("Example 4: Controller State (with curvature)")
     plt.legend()
@@ -88,19 +101,33 @@ def example_basic_visualizations():
     if isinstance(controller, PurePursuitController):
         fig, ax = plt.subplots(figsize=(12, 10))
         track.visualize(ax=ax, frame="global")
-        plot_pure_pursuit_state(controller, car.state, plan, ax=ax, show_curvature=True, show_steering_circle=True, show_lookahead=True)
+        plot_pure_pursuit_state(
+            controller,
+            car.state,
+            plan,
+            ax=ax,
+            show_curvature=True,
+            show_steering_circle=True,
+            show_lookahead=True,
+        )
         plt.title("Example 5: Pure Pursuit Controller (with steering circle)")
         plt.legend()
         plt.show()
 
     # Example 6: Plot everything together
-    frenet_map = FrenetMap(track)
+    FrenetMap(track)
     fig, ax = plt.subplots(figsize=(14, 12))
     track.visualize(ax=ax, frame="global")
     planner.visualize(ax=ax, car_state=car.state, plan=plan, frame="global")
     if perception_points is not None:
         plot_perception(perception_points, car.state, ax=ax, frame="global")
-    controller.visualize(ax=ax, car_state=car.state, plan=plan, frame="global", wheelbase=getattr(car, "wheelbase", 2.5))
+    controller.visualize(
+        ax=ax,
+        car_state=car.state,
+        plan=plan,
+        frame="global",
+        wheelbase=getattr(car, "wheelbase", 2.5),
+    )
     plot_car(car, ax=ax, frame="global", show_heading=True)
     plt.title("Example 6: Everything Together")
     plt.show()
@@ -116,7 +143,11 @@ def example_controller_visualization():
 
     track = Track.create_simple_track(length=80.0, width=40.0, track_width=5.0)
     start_point, start_heading = track.get_point_at_distance(0.0)
-    car = Car(initial_state=CarState(x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0))
+    car = Car(
+        initial_state=CarState(
+            x=start_point[0], y=start_point[1], heading=start_heading, velocity=8.0
+        )
+    )
 
     planner = TrackPlanner(track, lookahead_distance=50.0, waypoint_spacing=2.0)
     controller = PurePursuitController(lookahead_distance=10.0, target_velocity=8.0)
@@ -133,7 +164,7 @@ def example_controller_visualization():
         ax=ax,
         show_curvature=True,
         show_steering_circle=True,
-        show_lookahead=True
+        show_lookahead=True,
     )
     plt.title("Pure Pursuit Controller - Detailed View")
     plt.legend()

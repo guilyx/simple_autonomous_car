@@ -1,11 +1,12 @@
 """Base controller class for autonomous vehicle control."""
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from simple_autonomous_car.car.car import Car, CarState
+    from simple_autonomous_car.car.car import CarState
     from simple_autonomous_car.costmap.base_costmap import BaseCostmap
 
 from simple_autonomous_car.perception.perception import PerceptionPoints
@@ -44,13 +45,13 @@ class BaseController(ABC):
     def compute_control(
         self,
         car_state: "CarState",
-        perception_data: Optional[Dict[str, PerceptionPoints]] = None,
+        perception_data: dict[str, PerceptionPoints] | None = None,
         costmap: Optional["BaseCostmap"] = None,
-        plan: Optional[np.ndarray] = None,
-        goal: Optional[np.ndarray] = None,
-        goal_tolerance: Optional[float] = None,
+        plan: np.ndarray | None = None,
+        goal: np.ndarray | None = None,
+        goal_tolerance: float | None = None,
         dt: float = 0.1,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Compute control commands.
 
@@ -92,18 +93,15 @@ class BaseController(ABC):
         self.enabled = False
 
     def get_visualization_data(
-        self,
-        car_state: "CarState",
-        plan: Optional[np.ndarray] = None,
-        **kwargs
-    ) -> Dict:
+        self, car_state: "CarState", plan: np.ndarray | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Get visualization data for this controller.
-        
+
         This method should be overridden by subclasses to provide
         controller-specific visualization data (e.g., lookahead points,
         steering arcs, control commands).
-        
+
         Parameters
         ----------
         car_state : CarState
@@ -112,7 +110,7 @@ class BaseController(ABC):
             Planned path.
         **kwargs
             Additional arguments.
-        
+
         Returns
         -------
         Dict
@@ -120,22 +118,22 @@ class BaseController(ABC):
             returns empty dict. Subclasses should override to provide specific data.
         """
         return {}
-    
+
     def visualize(
         self,
-        ax,
+        ax: Any,
         car_state: "CarState",
-        plan: Optional[np.ndarray] = None,
+        plan: np.ndarray | None = None,
         frame: str = "global",
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """
         Visualize controller state on the given axes.
-        
+
         This method should be overridden by subclasses to plot
         controller-specific visualizations (e.g., lookahead points,
         steering arcs, control commands).
-        
+
         Parameters
         ----------
         ax : matplotlib.axes.Axes

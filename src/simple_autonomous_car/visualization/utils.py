@@ -1,9 +1,10 @@
 """Utility visualization functions for non-component data (perception, car)."""
 
-import numpy as np
+from typing import Any
+
 import matplotlib.pyplot as plt
+import numpy as np
 from matplotlib.patches import Polygon
-from typing import Optional
 
 from simple_autonomous_car.car.car import Car, CarState
 from simple_autonomous_car.perception.perception import PerceptionPoints
@@ -12,15 +13,15 @@ from simple_autonomous_car.perception.perception import PerceptionPoints
 def plot_perception(
     perception_points: PerceptionPoints,
     car_state: CarState,
-    ax: Optional[plt.Axes] = None,
+    ax: plt.Axes | None = None,
     frame: str = "global",
     color: str = "red",
     label: str = "Perception",
-    **kwargs
+    **kwargs: Any,
 ) -> plt.Axes:
     """
     Plot perception points from sensors.
-    
+
     Parameters
     ----------
     perception_points : PerceptionPoints
@@ -37,7 +38,7 @@ def plot_perception(
         Label for legend.
     **kwargs
         Additional arguments passed to scatter.
-    
+
     Returns
     -------
     plt.Axes
@@ -63,7 +64,7 @@ def plot_perception(
 
     # Extract alpha from kwargs if provided, otherwise use default
     scatter_alpha = kwargs.pop("alpha", 0.6)
-    
+
     ax.scatter(
         points[:, 0],
         points[:, 1],
@@ -74,7 +75,7 @@ def plot_perception(
         marker=".",
         edgecolors="darkred" if color in ["crimson", "red"] else None,
         linewidths=0.5 if color in ["crimson", "red"] else 0,
-        **kwargs
+        **kwargs,
     )
 
     ax.set_aspect("equal")
@@ -92,15 +93,15 @@ def plot_perception(
 
 def plot_car(
     car: Car,
-    ax: Optional[plt.Axes] = None,
+    ax: plt.Axes | None = None,
     frame: str = "global",
     color: str = "blue",
     show_heading: bool = True,
-    **kwargs
+    **kwargs: Any,
 ) -> plt.Axes:
     """
     Plot car position and orientation.
-    
+
     Parameters
     ----------
     car : Car
@@ -115,7 +116,7 @@ def plot_car(
         Whether to show heading arrow.
     **kwargs
         Additional arguments passed to Polygon.
-    
+
     Returns
     -------
     plt.Axes
@@ -131,9 +132,7 @@ def plot_car(
         car_corners = np.array([[-2, -0.9], [-2, 0.9], [2, 0.9], [2, -0.9]])
         car_pos = np.array([0.0, 0.0])
 
-    car_poly = Polygon(
-        car_corners, closed=True, color=color, alpha=0.7, label="Car", **kwargs
-    )
+    car_poly = Polygon(car_corners, closed=True, color=color, alpha=0.7, label="Car", **kwargs)
     ax.add_patch(car_poly)
 
     if show_heading and frame == "global":
@@ -154,8 +153,10 @@ def plot_car(
     elif show_heading and frame == "ego":
         # Draw forward arrow in ego frame
         ax.arrow(
-            0, 0,
-            3.0, 0,
+            0,
+            0,
+            3.0,
+            0,
             head_width=1.2,
             head_length=1.0,
             fc=color,

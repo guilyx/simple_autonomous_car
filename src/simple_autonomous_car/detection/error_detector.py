@@ -1,11 +1,10 @@
 """Localization error detection between perceived and ground truth maps."""
 
 import numpy as np
-from typing import Tuple, Dict
 
+from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
 from simple_autonomous_car.maps.perceived_map import PerceivedMap
-from simple_autonomous_car.car.car import CarState
 
 
 class LocalizationErrorDetector:
@@ -31,7 +30,7 @@ class LocalizationErrorDetector:
 
     def compute_errors(
         self, car_state: CarState, horizon: float, fov: float = 2 * np.pi
-    ) -> Dict[str, np.ndarray]:
+    ) -> dict[str, np.ndarray]:
         """
         Compute errors between perceived and ground truth segments.
 
@@ -61,8 +60,8 @@ class LocalizationErrorDetector:
                 "centerline_errors": np.array([]),
                 "inner_bound_errors": np.array([]),
                 "outer_bound_errors": np.array([]),
-                "max_error": 0.0,
-                "mean_error": 0.0,
+                "max_error": 0.0,  # type: ignore[dict-item]
+                "mean_error": 0.0,  # type: ignore[dict-item]
             }
 
         # Transform GT to car frame
@@ -78,9 +77,7 @@ class LocalizationErrorDetector:
         )
 
         # Compute errors (using nearest neighbor matching)
-        centerline_errors = self._compute_point_errors(
-            gt_centerline_car, perceived_centerline_car
-        )
+        centerline_errors = self._compute_point_errors(gt_centerline_car, perceived_centerline_car)
         inner_bound_errors = self._compute_point_errors(gt_inner_car, perceived_inner_car)
         outer_bound_errors = self._compute_point_errors(gt_outer_car, perceived_outer_car)
 
@@ -93,8 +90,8 @@ class LocalizationErrorDetector:
             "centerline_errors": centerline_errors,
             "inner_bound_errors": inner_bound_errors,
             "outer_bound_errors": outer_bound_errors,
-            "max_error": max_error,
-            "mean_error": mean_error,
+            "max_error": max_error,  # type: ignore[dict-item]
+            "mean_error": mean_error,  # type: ignore[dict-item]
         }
 
     def _compute_point_errors(
@@ -124,7 +121,7 @@ class LocalizationErrorDetector:
 
     def detect_errors(
         self, car_state: CarState, horizon: float, fov: float = 2 * np.pi
-    ) -> Dict[str, bool]:
+    ) -> dict[str, bool]:
         """
         Detect if errors exceed threshold.
 
@@ -142,23 +139,23 @@ class LocalizationErrorDetector:
         """
         errors = self.compute_errors(car_state, horizon, fov)
 
-        centerline_has_error = (
+        centerline_has_error = bool(
             np.any(errors["centerline_errors"] > self.error_threshold)
             if len(errors["centerline_errors"]) > 0
             else False
         )
-        inner_bound_has_error = (
+        inner_bound_has_error = bool(
             np.any(errors["inner_bound_errors"] > self.error_threshold)
             if len(errors["inner_bound_errors"]) > 0
             else False
         )
-        outer_bound_has_error = (
+        outer_bound_has_error = bool(
             np.any(errors["outer_bound_errors"] > self.error_threshold)
             if len(errors["outer_bound_errors"]) > 0
             else False
         )
 
-        has_error = centerline_has_error or inner_bound_has_error or outer_bound_has_error
+        has_error = bool(centerline_has_error or inner_bound_has_error or outer_bound_has_error)
 
         return {
             "has_error": has_error,

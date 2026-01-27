@@ -1,35 +1,31 @@
 """Pure Pursuit path following controller."""
 
+from typing import TYPE_CHECKING, Any, Optional
+
 import numpy as np
-from typing import Dict, Optional
-import matplotlib.pyplot as plt
 from matplotlib.patches import Arc
 
 from simple_autonomous_car.car.car import CarState
-from simple_autonomous_car.perception.perception import PerceptionPoints
-from simple_autonomous_car.control.base_controller import BaseController
 from simple_autonomous_car.constants import (
-    DEFAULT_WHEELBASE,
+    ADAPTIVE_GAIN_DENOMINATOR,
+    COST_THRESHOLD,
+    DEFAULT_ARC_ALPHA,
+    DEFAULT_ARC_LINEWIDTH,
+    DEFAULT_ARC_LOOKAHEAD_DISTANCE,
+    DEFAULT_GOAL_TOLERANCE,
     DEFAULT_LOOKAHEAD_DISTANCE,
     DEFAULT_LOOKAHEAD_GAIN,
     DEFAULT_MAX_STEERING_RATE,
+    DEFAULT_MAX_TURNING_RADIUS,
+    DEFAULT_MIN_TURNING_RADIUS,
     DEFAULT_TARGET_VELOCITY,
     DEFAULT_VELOCITY_GAIN,
-    DEFAULT_DT,
-    DEFAULT_GOAL_TOLERANCE,
-    DEFAULT_ARC_LOOKAHEAD_DISTANCE,
-    DEFAULT_MIN_TURNING_RADIUS,
-    DEFAULT_MAX_TURNING_RADIUS,
-    DEFAULT_ARC_LINEWIDTH,
-    DEFAULT_ARC_ALPHA,
-    DEFAULT_LOOKAHEAD_LINEWIDTH,
+    DEFAULT_WHEELBASE,
     MIN_LOOKAHEAD_DISTANCE,
-    MIN_STEERING_ANGLE_THRESHOLD,
     SMALL_STEERING_ANGLE_THRESHOLD,
-    ADAPTIVE_GAIN_DENOMINATOR,
-    COST_THRESHOLD,
 )
-from typing import TYPE_CHECKING
+from simple_autonomous_car.control.base_controller import BaseController
+from simple_autonomous_car.perception.perception import PerceptionPoints
 
 if TYPE_CHECKING:
     from simple_autonomous_car.costmap.base_costmap import BaseCostmap
@@ -78,13 +74,13 @@ class PurePursuitController(BaseController):
     def compute_control(
         self,
         car_state: CarState,
-        perception_data: Optional[Dict[str, PerceptionPoints]] = None,
+        perception_data: dict[str, PerceptionPoints] | None = None,
         costmap: Optional["BaseCostmap"] = None,
-        plan: Optional[np.ndarray] = None,
-        goal: Optional[np.ndarray] = None,
-        goal_tolerance: Optional[float] = None,
+        plan: np.ndarray | None = None,
+        goal: np.ndarray | None = None,
+        goal_tolerance: float | None = None,
         dt: float = 0.1,
-    ) -> Dict[str, float]:
+    ) -> dict[str, float]:
         """
         Compute control using Pure Pursuit algorithm.
 
@@ -154,24 +150,30 @@ class PurePursuitController(BaseController):
         lookahead_dist = np.linalg.norm(target_vector)
 
         # Check if we're very close to goal (if goal provided)
-        goal_tolerance_check = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
+        goal_tolerance_check = (
+            goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
+        )
         distance_to_goal = None
         if goal is not None:
             distance_to_goal = np.linalg.norm(car_pos - goal)
-        
+
         # PRIORITY: Check goal distance FIRST - if within tolerance, NO STEERING AT ALL
         # Initialize steering_rate (will be set in one of the branches below)
         steering_rate = 0.0
-        
+
         # If within tolerance, STOP STEERING COMPLETELY
         if distance_to_goal is not None and distance_to_goal <= goal_tolerance_check:
             # Within tolerance - NO STEERING AT ALL
             steering_rate = 0.0
         elif distance_to_goal is not None and distance_to_goal <= goal_tolerance_check * 1.5:
             # Between tolerance and 1.5*tolerance - reduce steering proportionally
-            steering_reduction = (distance_to_goal - goal_tolerance_check) / (goal_tolerance_check * 0.5)
-            steering_reduction = max(0.0, min(1.0, steering_reduction))  # Clamp to [0, 1]
-            
+            steering_reduction = (distance_to_goal - goal_tolerance_check) / (
+                goal_tolerance_check * 0.5
+            )
+            steering_reduction = max(  # type: ignore[arg-type]
+                0.0, min(1.0, steering_reduction)  # type: ignore[arg-type]
+            )  # Clamp to [0, 1]  # type: ignore[assignment]
+
             # Calculate normal steering but scale it down
             target_angle = np.arctan2(target_vector[1], target_vector[0])
             alpha = target_angle - car_state.heading
@@ -179,7 +181,7 @@ class PurePursuitController(BaseController):
             desired_steering = alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR))
             max_steering = np.pi / 4
             desired_steering = np.clip(desired_steering, -max_steering, max_steering)
-            
+
             # Scale down steering based on distance to goal
             desired_steering *= steering_reduction
             steering_error = desired_steering - car_state.steering_angle
@@ -188,8 +190,8 @@ class PurePursuitController(BaseController):
         elif lookahead_dist < MIN_LOOKAHEAD_DISTANCE:
             # Very close to target point (but not necessarily goal), reduce steering
             # Scale steering by lookahead distance to avoid spinning
-            steering_scale = max(0.0, lookahead_dist / MIN_LOOKAHEAD_DISTANCE)
-            steering_rate = -2.0 * car_state.steering_angle * steering_scale
+            steering_scale = max(0.0, lookahead_dist / MIN_LOOKAHEAD_DISTANCE)  # type: ignore[assignment]
+            steering_rate = -2.0 * car_state.steering_angle * steering_scale  # type: ignore[operator]
             steering_rate = np.clip(steering_rate, -self.max_steering_rate, self.max_steering_rate)
         else:
             # Normal Pure Pursuit: calculate desired steering angle
@@ -201,7 +203,9 @@ class PurePursuitController(BaseController):
             # When lookahead is small, steering should be reduced proportionally
             # This prevents spinning when close to goal
             lookahead_scale = min(1.0, lookahead_dist / self.lookahead_distance)
-            desired_steering = alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR)) * lookahead_scale
+            desired_steering = (
+                alpha * (1.0 / (1.0 + lookahead_dist / ADAPTIVE_GAIN_DENOMINATOR)) * lookahead_scale
+            )
 
             # Limit steering angle
             max_steering = np.pi / 4  # 45 degrees
@@ -219,7 +223,7 @@ class PurePursuitController(BaseController):
         if goal is not None:
             distance_to_goal = np.linalg.norm(car_state.position() - goal)
             tolerance = goal_tolerance if goal_tolerance is not None else DEFAULT_GOAL_TOLERANCE
-            
+
             # If within tolerance, stop completely
             if distance_to_goal <= tolerance:
                 target_velocity = 0.0
@@ -232,24 +236,29 @@ class PurePursuitController(BaseController):
                     # At distance=tolerance, velocity=0; at distance=slow_down_distance, velocity=target_velocity
                     # Map distance from [tolerance, slow_down_distance] to velocity [0, target_velocity]
                     if slow_down_distance > tolerance:
-                        velocity_factor = (distance_to_goal - tolerance) / (slow_down_distance - tolerance)
-                        velocity_factor = max(0.0, min(1.0, velocity_factor))  # Clamp to [0, 1]
-                        target_velocity = self.target_velocity * velocity_factor
+                        velocity_factor = (distance_to_goal - tolerance) / (
+                            slow_down_distance - tolerance
+                        )
+                        velocity_factor = max(  # type: ignore[arg-type]
+                            0.0, min(1.0, velocity_factor)  # type: ignore[arg-type]
+                        )  # Clamp to [0, 1]  # type: ignore[assignment]
+                        target_velocity = self.target_velocity * velocity_factor  # type: ignore[assignment]
                     else:
                         target_velocity = 0.0
                 # Ensure we always slow down when very close (even if above tolerance)
                 if distance_to_goal < tolerance * 2.0:
                     # Extra safety: cap velocity when very close
-                    max_velocity_near_goal = self.target_velocity * (distance_to_goal / (tolerance * 2.0))
-                    target_velocity = min(target_velocity, max_velocity_near_goal)
+                    max_velocity_near_goal = self.target_velocity * (
+                        distance_to_goal / (tolerance * 2.0)
+                    )
+                    target_velocity = min(target_velocity, max_velocity_near_goal)  # type: ignore[assignment]
 
         # Reduce velocity if high cost ahead
         if costmap is not None and costmap.is_enabled():
             # Check cost ahead of car
-            lookahead_pos = car_state.position() + 5.0 * np.array([
-                np.cos(car_state.heading),
-                np.sin(car_state.heading)
-            ])
+            lookahead_pos = car_state.position() + 5.0 * np.array(
+                [np.cos(car_state.heading), np.sin(car_state.heading)]
+            )
             cost_ahead = costmap.get_cost(lookahead_pos, frame="global", car_state=car_state)
             # Reduce velocity if cost > threshold
             if cost_ahead > COST_THRESHOLD:
@@ -262,11 +271,8 @@ class PurePursuitController(BaseController):
         return {"acceleration": acceleration, "steering_rate": steering_rate}
 
     def get_visualization_data(
-        self,
-        car_state: CarState,
-        plan: Optional[np.ndarray] = None,
-        **kwargs
-    ) -> Dict:
+        self, car_state: CarState, plan: np.ndarray | None = None, **kwargs: Any
+    ) -> dict[str, Any]:
         """
         Get visualization data for Pure Pursuit controller.
 
@@ -374,11 +380,11 @@ class PurePursuitController(BaseController):
 
     def visualize(
         self,
-        ax: plt.Axes,
+        ax: Any,
         car_state: CarState,
-        plan: Optional[np.ndarray] = None,
+        plan: np.ndarray | None = None,
         frame: str = "global",
-        **kwargs
+        **kwargs: Any,
     ) -> None:
         """
         Visualize Pure Pursuit controller state (lookahead point, steering arc).
@@ -417,9 +423,11 @@ class PurePursuitController(BaseController):
         arc_color = kwargs.pop("arc_color", "violet")  # Changed to violet/purple
         arc_linewidth = kwargs.pop("arc_linewidth", DEFAULT_ARC_LINEWIDTH)
         arc_alpha = kwargs.pop("arc_alpha", DEFAULT_ARC_ALPHA)
-        arc_lookahead_distance = kwargs.pop("arc_lookahead_distance", DEFAULT_ARC_LOOKAHEAD_DISTANCE)
-        max_turning_radius = kwargs.pop("max_turning_radius", DEFAULT_MAX_TURNING_RADIUS)
-        min_turning_radius = kwargs.pop("min_turning_radius", DEFAULT_MIN_TURNING_RADIUS)
+        arc_lookahead_distance = kwargs.pop(
+            "arc_lookahead_distance", DEFAULT_ARC_LOOKAHEAD_DISTANCE
+        )
+        kwargs.pop("max_turning_radius", DEFAULT_MAX_TURNING_RADIUS)
+        kwargs.pop("min_turning_radius", DEFAULT_MIN_TURNING_RADIUS)
 
         # Get car position and heading for frame transformation
         car_pos = car_state.position()
@@ -470,7 +478,7 @@ class PurePursuitController(BaseController):
                 else:
                     end_x = car_pos_plot[0] + arc_lookahead_distance * np.cos(car_heading_plot)
                     end_y = car_pos_plot[1] + arc_lookahead_distance * np.sin(car_heading_plot)
-                
+
                 ax.plot(
                     [car_pos_plot[0], end_x],
                     [car_pos_plot[1], end_y],
@@ -486,81 +494,85 @@ class PurePursuitController(BaseController):
                 turning_radius = wheelbase / np.tan(steering_angle)
 
         # Draw arc for non-straight steering
-        if turning_radius is not None and not np.isnan(turning_radius) and not np.isinf(turning_radius):
+        if (
+            turning_radius is not None
+            and not np.isnan(turning_radius)
+            and not np.isinf(turning_radius)
+        ):
             turning_radius_abs = abs(turning_radius)
             # Always show arc (removed min_turning_radius check)
             if turning_radius_abs > 0:
-                    # Calculate arc parameters
-                    arc_length_rad = arc_lookahead_distance / turning_radius_abs
+                # Calculate arc parameters
+                arc_length_rad = arc_lookahead_distance / turning_radius_abs
 
-                    if frame == "ego":
-                        center_x = 0.0
-                        if steering_angle > 0:  # Left turn
-                            center_y = turning_radius_abs
-                            theta_start_deg = -90.0
-                            theta_end_deg = -90.0 + np.degrees(arc_length_rad)
-                        else:  # Right turn
-                            center_y = -turning_radius_abs
-                            theta_start_deg = 90.0
-                            theta_end_deg = 90.0 - np.degrees(arc_length_rad)
-                    else:
-                        # Global frame
-                        perp_angle = car_heading_plot + np.pi / 2
-                        if turning_radius < 0:
-                            perp_angle += np.pi
+                if frame == "ego":
+                    center_x = 0.0
+                    if steering_angle > 0:  # Left turn
+                        center_y = turning_radius_abs
+                        theta_start_deg = -90.0
+                        theta_end_deg = -90.0 + np.degrees(arc_length_rad)
+                    else:  # Right turn
+                        center_y = -turning_radius_abs
+                        theta_start_deg = 90.0
+                        theta_end_deg = 90.0 - np.degrees(arc_length_rad)
+                else:
+                    # Global frame
+                    perp_angle = car_heading_plot + np.pi / 2
+                    if turning_radius < 0:
+                        perp_angle += np.pi
 
-                        center_x = car_pos_plot[0] + turning_radius_abs * np.cos(perp_angle)
-                        center_y = car_pos_plot[1] + turning_radius_abs * np.sin(perp_angle)
+                    center_x = car_pos_plot[0] + turning_radius_abs * np.cos(perp_angle)
+                    center_y = car_pos_plot[1] + turning_radius_abs * np.sin(perp_angle)
 
-                        dx_to_car = car_pos_plot[0] - center_x
-                        dy_to_car = car_pos_plot[1] - center_y
-                        theta_start_rad = np.arctan2(dy_to_car, dx_to_car)
-                        theta_start_deg = np.degrees(theta_start_rad)
-
-                        if steering_angle > 0:
-                            theta_end_deg = theta_start_deg + np.degrees(arc_length_rad)
-                        else:
-                            theta_end_deg = theta_start_deg - np.degrees(arc_length_rad)
-
-                    # Draw steering arc
-                    arc = Arc(
-                        (center_x, center_y),
-                        2 * turning_radius_abs,
-                        2 * turning_radius_abs,
-                        angle=0,
-                        theta1=theta_start_deg,
-                        theta2=theta_end_deg,
-                        color=arc_color,
-                        linestyle="-",
-                        linewidth=arc_linewidth,
-                        alpha=arc_alpha,
-                        zorder=4,
-                        label="Steering Path",
-                    )
-                    ax.add_patch(arc)
-
-                    # Add arrow at end of arc
-                    theta_end_rad = np.radians(theta_end_deg)
-                    arc_end_x = center_x + turning_radius_abs * np.cos(theta_end_rad)
-                    arc_end_y = center_y + turning_radius_abs * np.sin(theta_end_rad)
+                    dx_to_car = car_pos_plot[0] - center_x
+                    dy_to_car = car_pos_plot[1] - center_y
+                    theta_start_rad = np.arctan2(dy_to_car, dx_to_car)
+                    theta_start_deg = np.degrees(theta_start_rad)
 
                     if steering_angle > 0:
-                        direction_angle = theta_end_rad + np.pi / 2
+                        theta_end_deg = theta_start_deg + np.degrees(arc_length_rad)
                     else:
-                        direction_angle = theta_end_rad - np.pi / 2
+                        theta_end_deg = theta_start_deg - np.degrees(arc_length_rad)
 
-                    arrow_length = 2.0
-                    dx = arrow_length * np.cos(direction_angle)
-                    dy = arrow_length * np.sin(direction_angle)
-                    ax.arrow(
-                        arc_end_x,
-                        arc_end_y,
-                        dx,
-                        dy,
-                        head_width=1.5,
-                        head_length=1.0,
-                        fc=arc_color,
-                        ec="darkmagenta",
-                        alpha=arc_alpha,
-                        zorder=5,
-                    )
+                # Draw steering arc
+                arc = Arc(
+                    (center_x, center_y),
+                    2 * turning_radius_abs,
+                    2 * turning_radius_abs,
+                    angle=0,
+                    theta1=theta_start_deg,
+                    theta2=theta_end_deg,
+                    color=arc_color,
+                    linestyle="-",
+                    linewidth=arc_linewidth,
+                    alpha=arc_alpha,
+                    zorder=4,
+                    label="Steering Path",
+                )
+                ax.add_patch(arc)
+
+                # Add arrow at end of arc
+                theta_end_rad = np.radians(theta_end_deg)
+                arc_end_x = center_x + turning_radius_abs * np.cos(theta_end_rad)
+                arc_end_y = center_y + turning_radius_abs * np.sin(theta_end_rad)
+
+                if steering_angle > 0:
+                    direction_angle = theta_end_rad + np.pi / 2
+                else:
+                    direction_angle = theta_end_rad - np.pi / 2
+
+                arrow_length = 2.0
+                dx = arrow_length * np.cos(direction_angle)
+                dy = arrow_length * np.sin(direction_angle)
+                ax.arrow(
+                    arc_end_x,
+                    arc_end_y,
+                    dx,
+                    dy,
+                    head_width=1.5,
+                    head_length=1.0,
+                    fc=arc_color,
+                    ec="darkmagenta",
+                    alpha=arc_alpha,
+                    zorder=5,
+                )

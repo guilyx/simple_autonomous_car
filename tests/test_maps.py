@@ -1,17 +1,15 @@
 """Tests for maps module."""
 
-import numpy as np
-import pytest
-
 import sys
-sys.path.insert(0, 'src')
 
-from simple_autonomous_car.track.track import Track
+import numpy as np
+
+sys.path.insert(0, "src")
+
+from simple_autonomous_car.car.car import CarState
 from simple_autonomous_car.maps.ground_truth_map import GroundTruthMap
 from simple_autonomous_car.maps.perceived_map import PerceivedMap
-from simple_autonomous_car.maps.grid_map import GridMap
-from simple_autonomous_car.maps.grid_ground_truth_map import GridGroundTruthMap
-from simple_autonomous_car.car.car import CarState
+from simple_autonomous_car.track.track import Track
 
 
 def test_ground_truth_map_creation():

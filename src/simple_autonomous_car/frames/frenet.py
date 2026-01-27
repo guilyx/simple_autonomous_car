@@ -5,11 +5,12 @@ Frenet frame: (s, d) where:
 - d: lateral offset from the path (positive = left, negative = right)
 """
 
-import numpy as np
-from typing import Tuple, Optional
+from typing import Any
 
-from simple_autonomous_car.track.track import Track
+import numpy as np
+
 from simple_autonomous_car.car.car import CarState
+from simple_autonomous_car.track.track import Track
 
 
 class FrenetFrame:
@@ -29,13 +30,11 @@ class FrenetFrame:
         """Precompute cumulative distances along the track."""
         self.cumulative_distances = np.zeros(len(self.track.centerline))
         for i in range(1, len(self.track.centerline)):
-            dist = np.linalg.norm(
-                self.track.centerline[i] - self.track.centerline[i - 1]
-            )
+            dist = np.linalg.norm(self.track.centerline[i] - self.track.centerline[i - 1])
             self.cumulative_distances[i] = self.cumulative_distances[i - 1] + dist
         self.total_length = self.cumulative_distances[-1]
 
-    def get_closest_point(self, point: np.ndarray) -> Tuple[int, float]:
+    def get_closest_point(self, point: np.ndarray) -> tuple[int, float]:
         """
         Find closest point on centerline to given point.
 
@@ -46,11 +45,12 @@ class FrenetFrame:
             Tuple of (index, distance_along_path)
         """
         distances = np.linalg.norm(self.track.centerline - point, axis=1)
-        closest_idx = np.argmin(distances)
+        closest_idx_int = np.argmin(distances)
+        closest_idx: int = int(closest_idx_int)
         s = self.cumulative_distances[closest_idx]
-        return closest_idx, s
+        return closest_idx, float(s)
 
-    def get_tangent_normal(self, s: float) -> Tuple[np.ndarray, np.ndarray]:
+    def get_tangent_normal(self, s: float) -> tuple[np.ndarray, np.ndarray]:
         """
         Get tangent and normal vectors at distance s along path.
 
@@ -64,10 +64,10 @@ class FrenetFrame:
 
         # Find segment
         idx = np.searchsorted(self.cumulative_distances, s)
-        if idx == 0:
-            idx = 1
-        if idx >= len(self.track.centerline):
-            idx = len(self.track.centerline) - 1
+        if idx == 0:  # type: ignore[assignment]
+            idx = 1  # type: ignore[assignment]
+        if idx >= len(self.track.centerline):  # type: ignore[assignment]
+            idx = len(self.track.centerline) - 1  # type: ignore[assignment]
 
         # Get direction
         direction = self.track.centerline[idx] - self.track.centerline[idx - 1]
@@ -82,7 +82,7 @@ class FrenetFrame:
 
         return tangent, normal
 
-    def global_to_frenet(self, point: np.ndarray) -> Tuple[float, float]:
+    def global_to_frenet(self, point: np.ndarray) -> tuple[float, float]:
         """
         Convert point from global frame to Frenet frame.
 
@@ -120,7 +120,8 @@ class FrenetFrame:
         s = s % self.total_length  # Wrap around
 
         # Find segment
-        idx = np.searchsorted(self.cumulative_distances, s)
+        idx_int = np.searchsorted(self.cumulative_distances, s)
+        idx: int = int(idx_int.item() if hasattr(idx_int, "item") else idx_int)
         if idx == 0:
             idx = 1
         if idx >= len(self.track.centerline):
@@ -134,9 +135,8 @@ class FrenetFrame:
         else:
             t = 0.0
 
-        centerline_point = (
-            self.track.centerline[idx - 1]
-            + t * (self.track.centerline[idx] - self.track.centerline[idx - 1])
+        centerline_point = self.track.centerline[idx - 1] + t * (
+            self.track.centerline[idx] - self.track.centerline[idx - 1]
         )
 
         # Get tangent and normal
@@ -145,11 +145,11 @@ class FrenetFrame:
         # Offset by d in normal direction
         global_point = centerline_point + d * normal
 
-        return global_point
+        return np.asarray(global_point, dtype=np.float64)
 
 
 # Convenience functions
-def global_to_frenet(point: np.ndarray, frenet_frame: FrenetFrame) -> Tuple[float, float]:
+def global_to_frenet(point: np.ndarray, frenet_frame: FrenetFrame) -> tuple[float, float]:
     """Convert point from global to Frenet frame."""
     return frenet_frame.global_to_frenet(point)
 
@@ -161,7 +161,7 @@ def frenet_to_global(s: float, d: float, frenet_frame: FrenetFrame) -> np.ndarra
 
 def ego_to_frenet(
     point_ego: np.ndarray, car_state: CarState, frenet_frame: FrenetFrame
-) -> Tuple[float, float]:
+) -> tuple[float, float]:
     """
     Convert point from ego frame to Frenet frame.
 
@@ -180,17 +180,17 @@ def ego_to_frenet(
 
 
 # Add method to FrenetFrame class for convenience
-def _ego_to_frenet_method(self, point_ego: np.ndarray, car_state: CarState) -> Tuple[float, float]:
+def _ego_to_frenet_method(
+    self: Any, point_ego: np.ndarray, car_state: CarState
+) -> tuple[float, float]:
     """Convert point from ego frame to Frenet frame (instance method)."""
     return ego_to_frenet(point_ego, car_state, self)
 
 
-FrenetFrame.ego_to_frenet = _ego_to_frenet_method
+FrenetFrame.ego_to_frenet = _ego_to_frenet_method  # type: ignore[attr-defined]
 
 
-def frenet_to_ego(
-    s: float, d: float, car_state: CarState, frenet_frame: FrenetFrame
-) -> np.ndarray:
+def frenet_to_ego(s: float, d: float, car_state: CarState, frenet_frame: FrenetFrame) -> np.ndarray:
     """
     Convert point from Frenet frame to ego frame.
 
@@ -210,14 +210,14 @@ def frenet_to_ego(
 
 
 def sensor_to_ego(
-    point_sensor: np.ndarray, sensor_pose_ego: Optional[np.ndarray] = None
+    point_sensor: np.ndarray, sensor_pose_ego: np.ndarray | None = None
 ) -> np.ndarray:
     """
     Convert point from sensor frame to ego frame.
 
     Args:
         point_sensor: Point in sensor frame [x, y]
-        sensor_pose_ego: Sensor pose in ego frame [x, y, heading]. 
+        sensor_pose_ego: Sensor pose in ego frame [x, y, heading].
                         If None, assumes sensor is at ego origin.
 
     Returns:
@@ -232,16 +232,14 @@ def sensor_to_ego(
     sin_h = np.sin(sensor_heading)
 
     # Rotation matrix from sensor to ego
-    R = np.array([[cos_h, -sin_h], [sin_h, cos_h]])
+    rotation = np.array([[cos_h, -sin_h], [sin_h, cos_h]])
 
     # Transform
-    point_ego = R @ point_sensor + np.array([sensor_x, sensor_y])
-    return point_ego
+    point_ego = rotation @ point_sensor + np.array([sensor_x, sensor_y])
+    return np.asarray(point_ego, dtype=np.float64)
 
 
-def ego_to_sensor(
-    point_ego: np.ndarray, sensor_pose_ego: Optional[np.ndarray] = None
-) -> np.ndarray:
+def ego_to_sensor(point_ego: np.ndarray, sensor_pose_ego: np.ndarray | None = None) -> np.ndarray:
     """
     Convert point from ego frame to sensor frame.
 
@@ -262,8 +260,8 @@ def ego_to_sensor(
     sin_h = np.sin(sensor_heading)
 
     # Rotation matrix from ego to sensor (inverse)
-    R = np.array([[cos_h, sin_h], [-sin_h, cos_h]])
+    rotation = np.array([[cos_h, sin_h], [-sin_h, cos_h]])
 
     # Transform
-    point_sensor = R @ (point_ego - np.array([sensor_x, sensor_y]))
-    return point_sensor
+    point_sensor = rotation @ (point_ego - np.array([sensor_x, sensor_y]))
+    return np.asarray(point_sensor, dtype=np.float64)
