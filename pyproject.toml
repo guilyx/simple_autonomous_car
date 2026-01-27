@@ -80,8 +80,9 @@ disallow_untyped_defs = true
 # Allow numpy type compatibility issues
 warn_unreachable = false
 exclude = [
-    "tests/.*",
-    "examples/.*",
+    "^tests/.*",
+    "^examples/.*",
+    "^notebooks/.*",
 ]
 
 [tool.pytest.ini_options]

@@ -44,6 +44,7 @@ for step in range(num_steps):
 
 from typing import Any
 
+import matplotlib.figure
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Polygon
@@ -55,8 +56,8 @@ from simple_autonomous_car.visualization.utils import plot_car, plot_perception
 
 
 def create_enhanced_visualization(
-    figsize: tuple = (20, 10),
-) -> tuple:
+    figsize: tuple[int, int] = (20, 10),
+) -> tuple[matplotlib.figure.Figure, dict[str, Any], dict[str, Any]]:
     """
     Create a two-panel visualization layout: World View and Ego View.
 
