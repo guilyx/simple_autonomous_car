@@ -1,7 +1,8 @@
 # Simple Autonomous Car SDK
 
-[![CI](https://github.com/yourusername/simple-autonomous-car/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/simple-autonomous-car/actions/workflows/ci.yml)
+[![CI](https://github.com/guilyx/simple-autonomous-car/actions/workflows/ci.yml/badge.svg)](https://github.com/guilyx/simple-autonomous-car/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/simple-autonomous-car.svg)](https://badge.fury.io/py/simple-autonomous-car)
+[![codecov](https://codecov.io/gh/guilyx/simple_autonomous_car/graph/badge.svg?token=EN1F43X99S)](https://codecov.io/gh/guilyx/simple_autonomous_car)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive Python SDK for building autonomous vehicle systems with modular sensors, controllers, planners, and alert systems. Designed for researchers, engineers, and developers working on autonomous vehicle systems.
