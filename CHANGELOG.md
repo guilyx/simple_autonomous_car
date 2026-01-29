@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.3.0] - 2024-XX-XX
+## [0.1.0] - 2026-XX-XX
 
 ### Added
 - **Modular Sensor System**: Complete sensor architecture
@@ -38,7 +38,7 @@ All notable changes to this project will be documented in this file.
 ### Removed
 - Old `Sensor` class (replaced by modular sensor system)
 
-## [0.2.0] - 2024-XX-XX
+## [0.0.2] - 2026-XX-XX
 
 ### Added
 - **Frenet Frame Support**: Complete Frenet coordinate system implementation
@@ -84,7 +84,7 @@ All notable changes to this project will be documented in this file.
 - Error handling in alert system
 - Import structure
 
-## [0.1.0] - 2024-XX-XX
+## [0.0.1] - 2026-XX-XX
 
 ### Added
 - Initial release
