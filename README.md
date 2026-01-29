@@ -1,7 +1,7 @@
 # Simple Autonomous Car SDK
 
-[![CI](https://github.com/guilyx/simple-autonomous-car/actions/workflows/ci.yml/badge.svg)](https://github.com/guilyx/simple-autonomous-car/actions/workflows/ci.yml)
-[![PyPI version](https://badge.fury.io/py/simple-autonomous-car.svg)](https://badge.fury.io/py/simple-autonomous-car)
+[![CI](https://github.com/guilyx/simple_autonomous_car/actions/workflows/ci.yml/badge.svg)](https://github.com/guilyx/simple_autonomous_car/actions/workflows/ci.yml)
+[![PyPI version](https://badge.fury.io/py/simple_autonomous_car.svg)](https://badge.fury.io/py/simple_autonomous_car)
 [![codecov](https://codecov.io/gh/guilyx/simple_autonomous_car/graph/badge.svg?token=EN1F43X99S)](https://codecov.io/gh/guilyx/simple_autonomous_car)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -24,21 +24,21 @@ A comprehensive Python SDK for building autonomous vehicle systems with modular 
 ### From PyPI
 
 ```bash
-pip install simple-autonomous-car
+pip install simple_autonomous_car
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/simple-autonomous-car.git
-cd simple-autonomous-car
+git clone https://github.com/yourusername/simple_autonomous_car.git
+cd simple_autonomous_car
 pip install -e .
 ```
 
 ### With uv (Recommended)
 
 ```bash
-uv pip install simple-autonomous-car
+uv pip install simple_autonomous_car
 ```
 
 ## Quick Start
@@ -222,8 +222,8 @@ class MyPlanner(BasePlanner):
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/simple-autonomous-car.git
-cd simple-autonomous-car
+git clone https://github.com/yourusername/simple_autonomous_car.git
+cd simple_autonomous_car
 
 # Install with uv
 uv sync --dev
@@ -278,7 +278,7 @@ If you use this SDK in your research, please cite:
   title = {Simple Autonomous Car SDK},
   author = {Your Name},
   year = {2024},
-  url = {https://github.com/yourusername/simple-autonomous-car}
+  url = {https://github.com/yourusername/simple_autonomous_car}
 }
 ```
 
