@@ -1,6 +1,6 @@
 [project]
 name = "simple_autonomous_car"
-version = "0.1.0"
+version = "0.1.2"
 description = "Comprehensive SDK for building autonomous vehicle systems with modular sensors, controllers, planners, and alert systems"
 readme = "README.md"
 requires-python = ">=3.10"
