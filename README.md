@@ -32,7 +32,7 @@ pip install simple_autonomous_car
 ### From Source
 
 ```bash
-git clone https://github.com/yourusername/simple_autonomous_car.git
+git clone https://github.com/guilyx/simple_autonomous_car.git
 cd simple_autonomous_car
 pip install -e .
 ```
@@ -224,7 +224,7 @@ class MyPlanner(BasePlanner):
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/simple_autonomous_car.git
+git clone https://github.com/guilyx/simple_autonomous_car.git
 cd simple_autonomous_car
 
 # Install with uv
@@ -278,9 +278,9 @@ If you use this SDK in your research, please cite:
 ```bibtex
 @software{simple_autonomous_car,
   title = {Simple Autonomous Car SDK},
-  author = {Your Name},
-  year = {2024},
-  url = {https://github.com/yourusername/simple_autonomous_car}
+  author = {Erwin Lejeune},
+  year = {2026},
+  url = {https://github.com/guilyx/simple_autonomous_car}
 }
 ```
 
